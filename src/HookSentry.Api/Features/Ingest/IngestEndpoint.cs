@@ -11,6 +11,7 @@ using HookSentry.Domain.Senders;
 using HookSentry.Domain.Tenants;
 using HookSentry.Infrastructure.RabbitMq;
 using NHibernate.Linq;
+using StackExchange.Redis;
 
 namespace HookSentry.Api.Features.Ingest;
 
@@ -75,6 +76,7 @@ public class IngestEndpoint : IEndpoint
         HttpRequest httpRequest,
         NHibernate.ISession session,
         IEventPublisher publisher,
+        IConnectionMultiplexer redis,
         CancellationToken ct)
     {
         if (user.RequireTenantId(out var claimTenantId) is null && claimTenantId != tenantId)
@@ -86,26 +88,40 @@ public class IngestEndpoint : IEndpoint
         var idempotencyKey = httpRequest.Headers["X-Idempotency-Key"].FirstOrDefault();
         if (idempotencyKey is not null)
         {
-            var existing = await session.Query<Event>()
-                .Where(e => e.TenantId == tenantId && e.IdempotencyKey == idempotencyKey)
-                .SingleOrDefaultAsync(ct);
+            Event? existing = null;
+
+            try
+            {
+                var cached = await redis.GetDatabase()
+                    .StringGetAsync($"idempotency:{tenantId}:{idempotencyKey}");
+
+                if (cached.HasValue && Guid.TryParse(cached.ToString(), out var cachedId))
+                    existing = await session.GetAsync<Event>(cachedId, ct);
+            }
+            catch
+            {
+                // Redis unavailable — fall back to DB
+                existing = await session.Query<Event>()
+                    .Where(e => e.TenantId == tenantId && e.IdempotencyKey == idempotencyKey)
+                    .SingleOrDefaultAsync(ct);
+            }
 
             if (existing is not null)
                 return Results.Ok(new EventAcceptedResponse(existing.Id, existing.Status.ToString(), existing.AcceptedAt));
         }
 
         if (token.StartsWith(IngestToken.DestinationPrefix, StringComparison.Ordinal))
-            return await HandleDestinationToken(token, payload, tenantId, idempotencyKey, session, publisher, ct);
+            return await HandleDestinationToken(token, payload, tenantId, idempotencyKey, session, publisher, redis, ct);
 
         if (token.StartsWith(IngestToken.SenderPrefix, StringComparison.Ordinal))
-            return await HandleSenderToken(token, payload, tenantId, idempotencyKey, session, publisher, ct);
+            return await HandleSenderToken(token, payload, tenantId, idempotencyKey, session, publisher, redis, ct);
 
         return Results.BadRequest("Token inválido: prefixo não reconhecido.");
     }
 
     private static async Task<IResult> HandleDestinationToken(
         string token, JsonElement payload, Guid tenantId, string? idempotencyKey,
-        NHibernate.ISession session, IEventPublisher publisher, CancellationToken ct)
+        NHibernate.ISession session, IEventPublisher publisher, IConnectionMultiplexer redis, CancellationToken ct)
     {
         var tokenHash = IngestToken.Hash(token);
         var destination = await session.Query<DestinationUrl>()
@@ -120,12 +136,12 @@ public class IngestEndpoint : IEndpoint
         return await CreateAndPublishEvent(
             tenantId, destination.Id, destination.Url, destination.ServerRateLimit,
             destination.AuthType, destination.CredentialsEncrypted, payload.GetRawText(),
-            idempotencyKey, session, publisher, ct);
+            idempotencyKey, session, publisher, redis, ct);
     }
 
     private static async Task<IResult> HandleSenderToken(
         string token, JsonElement payload, Guid tenantId, string? idempotencyKey,
-        NHibernate.ISession session, IEventPublisher publisher, CancellationToken ct)
+        NHibernate.ISession session, IEventPublisher publisher, IConnectionMultiplexer redis, CancellationToken ct)
     {
         var tokenHash = IngestToken.Hash(token);
         var sender = await session.Query<WebhookSender>()
@@ -149,14 +165,14 @@ public class IngestEndpoint : IEndpoint
         return await CreateAndPublishEvent(
             tenantId, destination.Id, destination.Url, destination.ServerRateLimit,
             destination.AuthType, destination.CredentialsEncrypted, payloadJson,
-            idempotencyKey, session, publisher, ct);
+            idempotencyKey, session, publisher, redis, ct);
     }
 
     private static async Task<IResult> CreateAndPublishEvent(
         Guid tenantId, Guid destinationId, string destinationUrl,
         int serverRateLimit, DestinationAuthType? authType, string? credentialsEncrypted,
         string payloadJson, string? idempotencyKey,
-        NHibernate.ISession session, IEventPublisher publisher, CancellationToken ct)
+        NHibernate.ISession session, IEventPublisher publisher, IConnectionMultiplexer redis, CancellationToken ct)
     {
         var tenant = await session.GetAsync<Tenant>(tenantId, ct);
         if (tenant is null)
@@ -175,6 +191,18 @@ public class IngestEndpoint : IEndpoint
         using var tx = session.BeginTransaction();
         await session.SaveAsync(evento, ct);
         await tx.CommitAsync(ct);
+
+        if (idempotencyKey is not null)
+        {
+            try
+            {
+                await redis.GetDatabase().StringSetAsync(
+                    $"idempotency:{tenantId}:{idempotencyKey}",
+                    evento.Id.ToString(),
+                    TimeSpan.FromHours(24));
+            }
+            catch { /* Redis unavailable — idempotency degrades to DB-only on next request */ }
+        }
 
         await publisher.PublishAsync(new EventMessage(
             EventId: evento.Id,
