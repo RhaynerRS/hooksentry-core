@@ -9,6 +9,7 @@ using HookSentry.Domain.Destinations;
 using HookSentry.Domain.Events;
 using HookSentry.Domain.Senders;
 using HookSentry.Domain.Tenants;
+using HookSentry.Infrastructure.Destinations;
 using HookSentry.Infrastructure.RabbitMq;
 using NHibernate.Linq;
 using StackExchange.Redis;
@@ -77,6 +78,7 @@ public class IngestEndpoint : IEndpoint
         NHibernate.ISession session,
         IEventPublisher publisher,
         IConnectionMultiplexer redis,
+        IDestinationCacheService destinationCache,
         CancellationToken ct)
     {
         if (user.RequireTenantId(out var claimTenantId) is null && claimTenantId != tenantId)
@@ -111,17 +113,18 @@ public class IngestEndpoint : IEndpoint
         }
 
         if (token.StartsWith(IngestToken.DestinationPrefix, StringComparison.Ordinal))
-            return await HandleDestinationToken(token, payload, tenantId, idempotencyKey, session, publisher, redis, ct);
+            return await HandleDestinationToken(token, payload, tenantId, idempotencyKey, session, publisher, redis, destinationCache, ct);
 
         if (token.StartsWith(IngestToken.SenderPrefix, StringComparison.Ordinal))
-            return await HandleSenderToken(token, payload, tenantId, idempotencyKey, session, publisher, redis, ct);
+            return await HandleSenderToken(token, payload, tenantId, idempotencyKey, session, publisher, redis, destinationCache, ct);
 
         return Results.BadRequest("Token inválido: prefixo não reconhecido.");
     }
 
     private static async Task<IResult> HandleDestinationToken(
         string token, JsonElement payload, Guid tenantId, string? idempotencyKey,
-        NHibernate.ISession session, IEventPublisher publisher, IConnectionMultiplexer redis, CancellationToken ct)
+        NHibernate.ISession session, IEventPublisher publisher, IConnectionMultiplexer redis,
+        IDestinationCacheService destinationCache, CancellationToken ct)
     {
         var tokenHash = IngestToken.Hash(token);
         var destination = await session.Query<DestinationUrl>()
@@ -133,6 +136,8 @@ public class IngestEndpoint : IEndpoint
         if (!destination.IsActive())
             return Results.UnprocessableEntity($"Destination '{destination.Id}' is not active.");
 
+        await destinationCache.SetAsync(destination.Id, DestinationCacheEntry.From(destination), ct);
+
         return await CreateAndPublishEvent(
             tenantId, destination.Id, destination.Url, destination.ServerRateLimit,
             destination.AuthType, destination.CredentialsEncrypted, payload.GetRawText(),
@@ -141,7 +146,8 @@ public class IngestEndpoint : IEndpoint
 
     private static async Task<IResult> HandleSenderToken(
         string token, JsonElement payload, Guid tenantId, string? idempotencyKey,
-        NHibernate.ISession session, IEventPublisher publisher, IConnectionMultiplexer redis, CancellationToken ct)
+        NHibernate.ISession session, IEventPublisher publisher, IConnectionMultiplexer redis,
+        IDestinationCacheService destinationCache, CancellationToken ct)
     {
         var tokenHash = IngestToken.Hash(token);
         var sender = await session.Query<WebhookSender>()
@@ -151,11 +157,32 @@ public class IngestEndpoint : IEndpoint
         if (sender is null) return Results.NotFound("Ingest token não encontrado.");
         if (sender.TenantId != tenantId) return Results.Forbid();
 
+        var payloadJson = payload.GetRawText();
+
+        var entry = await destinationCache.GetAsync(sender.DestinationId, ct);
+        if (entry is not null)
+        {
+            if (entry.Status != DestinationUrlStatus.Active)
+                return Results.UnprocessableEntity($"Destination '{sender.DestinationId}' is not active.");
+
+            if (sender.Mapping is not null)
+            {
+                try { payloadJson = PayloadMapper.Apply(sender.Mapping, payloadJson); }
+                catch (Exception) { payloadJson = payload.GetRawText(); }
+            }
+
+            return await CreateAndPublishEvent(
+                tenantId, sender.DestinationId, entry.Url, entry.ServerRateLimit,
+                entry.AuthType, entry.CredentialsEncrypted, payloadJson,
+                idempotencyKey, session, publisher, redis, ct);
+        }
+
         var destination = await session.GetAsync<DestinationUrl>(sender.DestinationId, ct);
         if (destination is null || !destination.IsActive())
             return Results.UnprocessableEntity($"Destination '{sender.DestinationId}' is not active.");
 
-        var payloadJson = payload.GetRawText();
+        await destinationCache.SetAsync(destination.Id, DestinationCacheEntry.From(destination), ct);
+
         if (sender.Mapping is not null)
         {
             try { payloadJson = PayloadMapper.Apply(sender.Mapping, payloadJson); }

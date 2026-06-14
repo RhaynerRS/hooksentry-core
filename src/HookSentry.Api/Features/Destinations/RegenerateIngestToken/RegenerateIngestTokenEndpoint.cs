@@ -3,6 +3,7 @@ using HookSentry.Api.Common.Endpoints;
 using HookSentry.Api.Common.Extensions;
 using HookSentry.Api.DataTransfer.Destinations.Responses;
 using HookSentry.Domain.Destinations;
+using HookSentry.Infrastructure.Destinations;
 
 namespace HookSentry.Api.Features.Destinations.RegenerateIngestToken;
 
@@ -40,6 +41,7 @@ public class RegenerateIngestTokenEndpoint : IEndpoint
         Guid id,
         ClaimsPrincipal user,
         NHibernate.ISession session,
+        IDestinationCacheService destinationCache,
         CancellationToken ct)
     {
         if (user.RequireTenantId(out var tenantId) is { } err) return err;
@@ -53,6 +55,8 @@ public class RegenerateIngestTokenEndpoint : IEndpoint
         var rawToken = destination.RotateIngestToken();
 
         await tx.CommitAsync(ct);
+
+        await destinationCache.RemoveAsync(destination.Id, ct);
 
         return Results.Ok(new IngestTokenResponse(rawToken));
     }

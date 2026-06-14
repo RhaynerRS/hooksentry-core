@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using HookSentry.Api.Common.Endpoints;
 using HookSentry.Api.Common.Extensions;
+using HookSentry.Infrastructure.Destinations;
 using HookSentry.Infrastructure.Security;
 using HookSentry.Api.DataTransfer.Destinations.Requests;
 using HookSentry.Api.DataTransfer.Destinations.Responses;
@@ -51,6 +52,7 @@ public class UpdateDestinationEndpoint : IEndpoint
         ClaimsPrincipal user,
         NHibernate.ISession session,
         ICredentialEncryptionService encryption,
+        IDestinationCacheService destinationCache,
         CancellationToken ct)
     {
         if (user.RequireTenantId(out var tenantId) is { } err) return err;
@@ -121,6 +123,8 @@ public class UpdateDestinationEndpoint : IEndpoint
         }
 
         await tx.CommitAsync(ct);
+
+        await destinationCache.RemoveAsync(destination.Id, ct);
 
         return Results.Ok(DestinationResponse.From(destination));
     }

@@ -1,3 +1,4 @@
+using HookSentry.Infrastructure.Destinations;
 using StackExchange.Redis;
 
 namespace HookSentry.Api.Common.Extensions;
@@ -11,6 +12,8 @@ public static class RedisExtensions
 
         services.AddSingleton<IConnectionMultiplexer>(_ =>
             ConnectionMultiplexer.Connect(connectionString));
+
+        services.AddSingleton<IDestinationCacheService, DestinationCacheService>();
 
         return services;
     }
