@@ -2,7 +2,11 @@ using System.Security.Claims;
 using HookSentry.Api.Common.Endpoints;
 using HookSentry.Api.Common.Extensions;
 using HookSentry.Api.DataTransfer.Events.Responses;
+using HookSentry.Domain.Destinations;
 using HookSentry.Domain.Events;
+using HookSentry.Domain.Tenants;
+using HookSentry.Infrastructure.RabbitMq;
+
 namespace HookSentry.Api.Features.Events.ReplayEvent;
 
 public class ReplayEventEndpoint : IEndpoint
@@ -41,6 +45,7 @@ public class ReplayEventEndpoint : IEndpoint
         Guid id,
         ClaimsPrincipal user,
         NHibernate.ISession session,
+        IEventPublisher publisher,
         CancellationToken ct)
     {
         if (user.RequireTenantId(out var tenantId) is { } err) return err;
@@ -55,16 +60,30 @@ public class ReplayEventEndpoint : IEndpoint
         if (evento.TenantId != tenantId)
             return Results.Forbid();
 
-        try
-        {
-            evento.ResetForReplay();
-        }
-        catch (InvalidOperationException ex)
-        {
-            return Results.BadRequest(ex.Message);
-        }
+        var destination = await session.GetAsync<DestinationUrl>(evento.DestinationUrlId, ct);
+        var tenant = await session.GetAsync<Tenant>(evento.TenantId, ct);
+
+        if (destination is null || tenant is null)
+            return Results.Problem("Dados do destino ou tenant não encontrados.");
+
+        try { evento.ResetForReplay(); }
+        catch (InvalidOperationException ex) { return Results.BadRequest(ex.Message); }
 
         await tx.CommitAsync(ct);
+
+        await publisher.PublishAsync(new EventMessage(
+            EventId: evento.Id,
+            TenantId: evento.TenantId,
+            DestinationUrlId: evento.DestinationUrlId,
+            DestinationUrl: destination.Url,
+            Payload: evento.Payload,
+            RetryCount: 0,
+            MaxTrys: tenant.MaxTrys,
+            WebhookSecret: tenant.WebhookSecret,
+            ServerRateLimit: destination.ServerRateLimit,
+            AuthType: destination.AuthType,
+            CredentialsEncrypted: destination.CredentialsEncrypted
+        ), ct);
 
         return Results.Ok(EventResponse.From(evento));
     }
