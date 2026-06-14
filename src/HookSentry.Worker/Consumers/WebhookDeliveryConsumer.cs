@@ -1,4 +1,5 @@
-using System.Collections.Concurrent;
+﻿using System.Collections.Concurrent;
+using System.Diagnostics;
 using System.Net;
 using System.Net.Http.Headers;
 using System.Security.Cryptography;
@@ -23,12 +24,28 @@ public sealed class WebhookDeliveryConsumer(
     ISessionFactory sessionFactory,
     ILogger<WebhookDeliveryConsumer> logger) : BackgroundService
 {
+    private static readonly ActivitySource _source = new("HookSentry.Worker");
+
+    private static readonly Action<ILogger, Exception?> _logStarting =
+        LoggerMessage.Define(LogLevel.Information, default, "WebhookDeliveryConsumer starting...");
+
+    private static readonly Action<ILogger, Exception?> _logListening =
+        LoggerMessage.Define(LogLevel.Information, default, "WebhookDeliveryConsumer listening on 'webhooks.delivery'...");
+
+    private static readonly Action<ILogger, Guid, string, int, Exception?> _logEventReceived =
+        LoggerMessage.Define<Guid, string, int>(LogLevel.Information, default,
+            "Event received: {EventId} -> {DestinationUrl} (retry #{RetryCount})");
+
+    private static readonly Action<ILogger, ulong, Exception?> _logMessageProcessingFailed =
+        LoggerMessage.Define<ulong>(LogLevel.Error, default,
+            "Failed to process message with DeliveryTag {Tag}");
+
     private readonly string _exchange = options.Value.EventsExchange;
     private readonly ConcurrentDictionary<Guid, SemaphoreSlim> _semaphores = new();
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
-        logger.LogInformation("WebhookDeliveryConsumer starting...");
+        _logStarting(logger, null);
 
         var channel = await mqConnection.GetConnection().CreateChannelAsync(cancellationToken: stoppingToken);
 
@@ -58,116 +75,7 @@ public sealed class WebhookDeliveryConsumer(
             cancellationToken: stoppingToken);
 
         var consumer = new AsyncEventingBasicConsumer(channel);
-
-        consumer.ReceivedAsync += async (_, ea) =>
-        {
-            EventMessage? message = null;
-            try
-            {
-               message = JsonSerializer.Deserialize<EventMessage>(ea.Body.Span);
-
-                if (message is null)
-                {
-                    await channel.BasicNackAsync(ea.DeliveryTag, multiple: false, requeue: false,
-                        cancellationToken: stoppingToken);
-                    return;
-                }
-
-                logger.LogInformation(
-                    "Event received: {EventId} -> {DestinationUrl} (retry #{RetryCount})",
-                    message.EventId, message.DestinationUrl, message.RetryCount);
-
-                var semaphore = GetSemaphore(message.DestinationUrlId, message.ServerRateLimit);
-                await semaphore.WaitAsync(stoppingToken);
-                HttpResponseMessage response;
-                try
-                {
-                    using var httpClient = new HttpClient();
-                    await ApplyAuthAsync(httpClient, message);
-
-                    var signature = ComputeSignature(message.WebhookSecret, message.Payload);
-                    httpClient.DefaultRequestHeaders.Add("X-HookSentry-Signature", signature);
-
-                    var content = new StringContent(message.Payload, Encoding.UTF8, "application/json");
-                    response = await httpClient.PostAsync(message.DestinationUrl, content, stoppingToken);
-                }
-                finally
-                {
-                    semaphore.Release();
-                }
-
-                if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden or HttpStatusCode.NotFound)
-                {
-                    logger.LogWarning(
-                        "Authentication failed ({StatusCode}) for event {EventId}. Removing from queue.",
-                        (int)response.StatusCode, message.EventId);
-
-                    await MarkAuthenticationFailedAsync(message.EventId, stoppingToken);
-                    await channel.BasicNackAsync(ea.DeliveryTag, multiple: false, requeue: false,
-                        cancellationToken: stoppingToken);
-                    return;
-                }
-
-                if (response.IsSuccessStatusCode)
-                {
-                    await MarkSucceededAsync(message.EventId, stoppingToken);
-                    await channel.BasicAckAsync(ea.DeliveryTag, multiple: false,
-                        cancellationToken: stoppingToken);
-                    return;
-                }
-
-                // Falha não-auth: aplicar backoff
-                var nextRetry = message.RetryCount + 1;
-                var nextAt = DateTimeOffset.UtcNow + GetBackoffDuration(nextRetry);
-
-                if (nextRetry >= message.MaxTrys)
-                {
-                    logger.LogWarning(
-                        "Event {EventId} exhausted {MaxTrys} retries. Marking as CriticalFailure.",
-                        message.EventId, message.MaxTrys);
-
-                    await MarkCriticalFailureAsync(message.EventId, stoppingToken);
-                    await channel.BasicNackAsync(ea.DeliveryTag, multiple: false, requeue: false,
-                        cancellationToken: stoppingToken);
-                    return;
-                }
-
-                await MarkWaitingRetryAsync(message.EventId, nextRetry, nextAt, stoppingToken);
-                await channel.BasicNackAsync(ea.DeliveryTag, multiple: false, requeue: false,
-                    cancellationToken: stoppingToken);
-                await publisher.PublishDelayedAsync(
-                    message with { RetryCount = nextRetry }, nextRetry, stoppingToken);
-            }
-            catch (Exception ex)
-            {
-                logger.LogError(ex, "Failed to process message with DeliveryTag {Tag}", ea.DeliveryTag);
-
-                if (message is not null)
-                {
-                    var nextRetry = message.RetryCount + 1;
-                    var nextAt = DateTimeOffset.UtcNow + GetBackoffDuration(nextRetry);
-
-                    if (nextRetry >= message.MaxTrys)
-                    {
-                        await MarkCriticalFailureAsync(message.EventId, stoppingToken);
-                        await channel.BasicNackAsync(ea.DeliveryTag, multiple: false, requeue: false,
-                            cancellationToken: stoppingToken);
-                        return;
-                    }
-
-                    await MarkWaitingRetryAsync(message.EventId, nextRetry, nextAt, stoppingToken);
-                    await channel.BasicNackAsync(ea.DeliveryTag, multiple: false, requeue: false,
-                        cancellationToken: stoppingToken);
-                    await publisher.PublishDelayedAsync(
-                        message with { RetryCount = nextRetry }, nextRetry, stoppingToken);
-                }
-                else
-                {
-                    await channel.BasicNackAsync(ea.DeliveryTag, multiple: false, requeue: false,
-                        cancellationToken: stoppingToken);
-                }
-            }
-        };
+        consumer.ReceivedAsync += async (_, ea) => await DispatchAsync(channel, ea, stoppingToken);
 
         await channel.BasicConsumeAsync(
             queue: "webhooks.delivery",
@@ -175,9 +83,140 @@ public sealed class WebhookDeliveryConsumer(
             consumer: consumer,
             cancellationToken: stoppingToken);
 
-        logger.LogInformation("WebhookDeliveryConsumer listening on 'webhooks.delivery'...");
+        _logListening(logger, null);
 
         await Task.Delay(Timeout.Infinite, stoppingToken);
+    }
+
+    private async Task DispatchAsync(IChannel channel, BasicDeliverEventArgs ea, CancellationToken ct)
+    {
+        EventMessage? message = null;
+        Activity? activity = null;
+        try
+        {
+            message = JsonSerializer.Deserialize<EventMessage>(ea.Body.Span);
+            if (message is null)
+            {
+                await channel.BasicNackAsync(ea.DeliveryTag, multiple: false, requeue: false, cancellationToken: ct);
+                return;
+            }
+
+            _logEventReceived(logger, message.EventId, message.DestinationUrl, message.RetryCount, null);
+
+            activity = _source.StartActivity("webhook.delivery.attempt");
+            activity?.SetTag("event.id", message.EventId);
+            activity?.SetTag("tenant.id", message.TenantId);
+            activity?.SetTag("destination.id", message.DestinationUrlId);
+            activity?.SetTag("http.attempt_number", message.RetryCount + 1);
+
+            await DeliverAsync(message, channel, ea.DeliveryTag, activity, ct);
+        }
+        catch (Exception ex)
+        {
+            activity?.SetStatus(ActivityStatusCode.Error);
+            _logMessageProcessingFailed(logger, ea.DeliveryTag, ex);
+
+            if (message is not null)
+                await RetryOrGiveUpAsync(message, channel, ea.DeliveryTag, ct);
+            else
+                await channel.BasicNackAsync(ea.DeliveryTag, multiple: false, requeue: false, cancellationToken: ct);
+        }
+        finally
+        {
+            activity?.Dispose();
+        }
+    }
+
+    private async Task DeliverAsync(
+        EventMessage message, IChannel channel, ulong deliveryTag, Activity? activity, CancellationToken ct)
+    {
+        var response = await SendAsync(message, ct);
+        activity?.SetTag("http.response.status_code", (int)response.StatusCode);
+
+        if (response.IsSuccessStatusCode)
+        {
+            activity?.SetStatus(ActivityStatusCode.Ok);
+            await MarkSucceededAsync(message.EventId, ct);
+            await channel.BasicAckAsync(deliveryTag, multiple: false, cancellationToken: ct);
+            return;
+        }
+
+        activity?.SetStatus(ActivityStatusCode.Error);
+
+        if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden or HttpStatusCode.NotFound)
+        {
+            await HandleAuthFailureAsync(message, response, channel, deliveryTag, ct);
+            return;
+        }
+
+        await HandleHttpFailureAsync(message, response, channel, deliveryTag, ct);
+    }
+
+    private async Task<HttpResponseMessage> SendAsync(EventMessage message, CancellationToken ct)
+    {
+        var semaphore = GetSemaphore(message.DestinationUrlId, message.ServerRateLimit);
+        await semaphore.WaitAsync(ct);
+        try
+        {
+            using var httpClient = new HttpClient();
+            await ApplyAuthAsync(httpClient, message);
+            httpClient.DefaultRequestHeaders.Add(
+                "X-HookSentry-Signature", ComputeSignature(message.WebhookSecret, message.Payload));
+            var content = new StringContent(message.Payload, Encoding.UTF8, "application/json");
+            return await httpClient.PostAsync(message.DestinationUrl, content, ct);
+        }
+        finally
+        {
+            semaphore.Release();
+        }
+    }
+
+    private async Task HandleAuthFailureAsync(
+        EventMessage message, HttpResponseMessage response, IChannel channel, ulong deliveryTag, CancellationToken ct)
+    {
+        await LogDeliveryFailureAsync(message, response, "AuthenticationFailed", ct);
+        await MarkAuthenticationFailedAsync(message.EventId, ct);
+        await channel.BasicNackAsync(deliveryTag, multiple: false, requeue: false, cancellationToken: ct);
+    }
+
+    private async Task HandleHttpFailureAsync(
+        EventMessage message, HttpResponseMessage response, IChannel channel, ulong deliveryTag, CancellationToken ct)
+    {
+        var nextRetry = message.RetryCount + 1;
+        var errorType = nextRetry >= message.MaxTrys ? "RetryExhausted" : "HttpError";
+        await LogDeliveryFailureAsync(message, response, errorType, ct);
+        await RetryOrGiveUpAsync(message, channel, deliveryTag, ct);
+    }
+
+    private async Task LogDeliveryFailureAsync(
+        EventMessage message, HttpResponseMessage response, string errorType, CancellationToken ct)
+    {
+        var responseBody = await response.Content.ReadAsStringAsync(ct);
+        logger.LogWarning(
+            "Webhook delivery failed. EventId={EventId} TenantId={TenantId} " +
+            "DestinationId={DestinationId} Attempt={Attempt} " +
+            "HttpStatus={HttpStatus} ErrorType={ErrorType} Body={ResponseBody}",
+            message.EventId, message.TenantId, message.DestinationUrlId,
+            message.RetryCount + 1, (int)response.StatusCode,
+            errorType, responseBody[..Math.Min(responseBody.Length, 2048)]);
+    }
+
+    private async Task RetryOrGiveUpAsync(
+        EventMessage message, IChannel channel, ulong deliveryTag, CancellationToken ct)
+    {
+        var nextRetry = message.RetryCount + 1;
+
+        if (nextRetry >= message.MaxTrys)
+        {
+            await MarkCriticalFailureAsync(message.EventId, ct);
+            await channel.BasicNackAsync(deliveryTag, multiple: false, requeue: false, cancellationToken: ct);
+            return;
+        }
+
+        var nextAt = DateTimeOffset.UtcNow + GetBackoffDuration(nextRetry);
+        await MarkWaitingRetryAsync(message.EventId, nextRetry, nextAt, ct);
+        await channel.BasicNackAsync(deliveryTag, multiple: false, requeue: false, cancellationToken: ct);
+        await publisher.PublishDelayedAsync(message with { RetryCount = nextRetry }, nextRetry, ct);
     }
 
     private SemaphoreSlim GetSemaphore(Guid destinationId, int limit)
@@ -290,50 +329,26 @@ public sealed class WebhookDeliveryConsumer(
         return json.RootElement.GetProperty("access_token").GetString()!;
     }
 
-    private async Task MarkSucceededAsync(Guid eventId, CancellationToken ct)
-    {
-        using var session = sessionFactory.OpenSession();
-        using var tx = session.BeginTransaction();
-        var evento = await session.GetAsync<Event>(eventId, ct);
-        if (evento is not null)
-        {
-            evento.MarkSucceeded();
-            await tx.CommitAsync(ct);
-        }
-    }
+    private Task MarkSucceededAsync(Guid eventId, CancellationToken ct) =>
+        UpdateEventAsync(eventId, e => e.MarkSucceeded(), ct);
 
-    private async Task MarkWaitingRetryAsync(Guid eventId, int retryCount, DateTimeOffset nextAttemptAt, CancellationToken ct)
-    {
-        using var session = sessionFactory.OpenSession();
-        using var tx = session.BeginTransaction();
-        var evento = await session.GetAsync<Event>(eventId, ct);
-        if (evento is not null)
-        {
-            evento.MarkWaitingRetry(retryCount, nextAttemptAt);
-            await tx.CommitAsync(ct);
-        }
-    }
+    private Task MarkWaitingRetryAsync(Guid eventId, int retryCount, DateTimeOffset nextAttemptAt, CancellationToken ct) =>
+        UpdateEventAsync(eventId, e => e.MarkWaitingRetry(retryCount, nextAttemptAt), ct);
 
-    private async Task MarkCriticalFailureAsync(Guid eventId, CancellationToken ct)
-    {
-        using var session = sessionFactory.OpenSession();
-        using var tx = session.BeginTransaction();
-        var evento = await session.GetAsync<Event>(eventId, ct);
-        if (evento is not null)
-        {
-            evento.MarkCriticalFailure();
-            await tx.CommitAsync(ct);
-        }
-    }
+    private Task MarkCriticalFailureAsync(Guid eventId, CancellationToken ct) =>
+        UpdateEventAsync(eventId, e => e.MarkCriticalFailure(), ct);
 
-    private async Task MarkAuthenticationFailedAsync(Guid eventId, CancellationToken ct)
+    private Task MarkAuthenticationFailedAsync(Guid eventId, CancellationToken ct) =>
+        UpdateEventAsync(eventId, e => e.MarkAuthenticationFailed(), ct);
+
+    private async Task UpdateEventAsync(Guid eventId, Action<Event> update, CancellationToken ct)
     {
         using var session = sessionFactory.OpenSession();
         using var tx = session.BeginTransaction();
         var evento = await session.GetAsync<Event>(eventId, ct);
         if (evento is not null)
         {
-            evento.MarkAuthenticationFailed();
+            update(evento);
             await tx.CommitAsync(ct);
         }
     }

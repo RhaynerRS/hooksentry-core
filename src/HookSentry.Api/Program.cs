@@ -1,5 +1,6 @@
 using HookSentry.Api.Common.Endpoints;
 using HookSentry.Api.Common.Extensions;
+using HookSentry.Infrastructure.Observability;
 using HookSentry.Infrastructure.Persistence;
 using HookSentry.Infrastructure.RabbitMq;
 using Microsoft.Extensions.Options;
@@ -13,7 +14,8 @@ builder.Services
     .AddSecurity(builder.Configuration)
     .AddJwtAndApiKeyAuth(builder.Configuration)
     .AddSwaggerWithAuth()
-    .AddRabbitMq(builder.Configuration);
+    .AddRabbitMq(builder.Configuration)
+    .AddObservability(builder.Configuration);
 
 var app = builder.Build();
 

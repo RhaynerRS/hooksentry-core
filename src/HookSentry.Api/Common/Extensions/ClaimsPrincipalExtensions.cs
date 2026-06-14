@@ -16,8 +16,8 @@ public static class ClaimsPrincipalExtensions
     {
         if (!Guid.TryParse(principal.FindFirst("tenant_id")?.Value, out tenantId))
             return Results.Unauthorized();
-        if (!Enum.TryParse<UserRole>(principal.FindFirst("role")?.Value, ignoreCase: true, out var role))
-            return Results.Unauthorized();
+        if (!Enum.TryParse<UserRole>(principal.FindFirst("http://schemas.microsoft.com/ws/2008/06/identity/claims/role")?.Value, ignoreCase: true, out var role))
+            return Results.Forbid();
         if (role != UserRole.Admin)
             return Results.Forbid();
         return null;

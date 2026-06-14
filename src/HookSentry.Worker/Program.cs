@@ -1,3 +1,4 @@
+using HookSentry.Infrastructure.Observability;
 using HookSentry.Infrastructure.Persistence;
 using HookSentry.Infrastructure.RabbitMq;
 using HookSentry.Infrastructure.Security;
@@ -8,6 +9,7 @@ var builder = Host.CreateApplicationBuilder(args);
 
 builder.Services.AddPersistence(builder.Configuration);
 builder.Services.AddRabbitMq(builder.Configuration);
+builder.Services.AddObservability(builder.Configuration);
 builder.Services.Configure<CredentialEncryptionSettings>(
     builder.Configuration.GetSection("CredentialEncryption"));
 builder.Services.AddSingleton<ICredentialEncryptionService, AesCredentialEncryptionService>();
