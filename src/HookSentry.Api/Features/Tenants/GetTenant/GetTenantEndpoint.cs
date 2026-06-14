@@ -11,17 +11,17 @@ public class GetTenantEndpoint : IEndpoint
         app.MapGet("/api/v1/tenants/{id:guid}", Handle)
             .WithName("GetTenantById")
             .WithTags("Tenants")
-            .WithSummary("Retorna os dados de um tenant pelo ID")
+            .WithSummary("Returns tenant data by ID")
             .WithDescription("""
-                Busca um tenant pelo seu UUID.
+                Looks up a tenant by their UUID.
 
-                **Parâmetros de rota:**
-                - `id` *(obrigatório)*: UUID do tenant
+                **Route parameters:**
+                - `id` *(required)*: tenant UUID
 
-                **Códigos de retorno:**
-                - `200 OK`: dados do tenant (sem `webhookSecret`)
-                - `401 Unauthorized`: token ausente ou inválido
-                - `404 Not Found`: tenant não encontrado
+                **Return codes:**
+                - `200 OK`: tenant data (without `webhookSecret`)
+                - `401 Unauthorized`: missing or invalid token
+                - `404 Not Found`: tenant not found
                 """)
             .RequireAuthorization()
             .Produces<TenantResponse>()

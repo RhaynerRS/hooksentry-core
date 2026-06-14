@@ -13,18 +13,18 @@ public class DeleteSenderEndpoint : IEndpoint
         app.MapDelete("/api/v1/senders/{id:guid}", Handle)
             .WithName("DeleteSender")
             .WithTags("Senders")
-            .WithSummary("Remove um sender")
+            .WithSummary("Removes a sender")
             .WithDescription("""
-                Remove um sender do tenant autenticado. O ingest token associado é invalidado imediatamente.
+                Removes a sender from the authenticated tenant. The associated ingest token is invalidated immediately.
 
-                **Parâmetros de rota:**
-                - `id` *(obrigatório)*: UUID do sender
+                **Route parameters:**
+                - `id` *(required)*: sender UUID
 
-                **Códigos de retorno:**
-                - `204 No Content`: sender removido
-                - `401 Unauthorized`: token JWT ausente ou inválido
-                - `403 Forbidden`: sender pertence a outro tenant
-                - `404 Not Found`: sender não encontrado
+                **Return codes:**
+                - `204 No Content`: sender removed
+                - `401 Unauthorized`: missing or invalid JWT token
+                - `403 Forbidden`: sender belongs to another tenant
+                - `404 Not Found`: sender not found
                 """)
             .RequireAuthorization()
             .Produces(StatusCodes.Status204NoContent)

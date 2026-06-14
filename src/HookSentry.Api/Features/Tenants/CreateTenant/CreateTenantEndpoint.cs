@@ -16,24 +16,24 @@ public class CreateTenantEndpoint : IEndpoint
         app.MapPost("/api/v1/tenants", Handle)
             .WithName("CreateTenant")
             .WithTags("Tenants")
-            .WithSummary("Cadastra um novo tenant com usuário admin inicial")
+            .WithSummary("Registers a new tenant with an initial admin user")
             .WithDescription("""
-                Cria um novo tenant e seu primeiro usuário administrador em uma única operação atômica.
-                Gera automaticamente o `webhook_secret` (HMAC-SHA256).
+                Creates a new tenant and its first admin user in a single atomic operation.
+                Automatically generates the `webhook_secret` (HMAC-SHA256).
 
-                **Não requer autenticação.**
+                **No authentication required.**
 
                 **Body:**
-                - `name` *(obrigatório)*: nome único da organização
-                - `adminEmail` *(obrigatório)*: e-mail do usuário administrador inicial — único na plataforma
-                - `adminPassword` *(obrigatório)*: senha do administrador — armazenada como hash
-                - `maxTrys` *(opcional, padrão: 10)*: número máximo de tentativas antes da DLQ
-                - `circuitBreakerTimer` *(opcional, padrão: 300)*: duração em segundos do estado OPEN do Circuit Breaker
+                - `name` *(required)*: unique organization name
+                - `adminEmail` *(required)*: initial admin user email — unique on the platform
+                - `adminPassword` *(required)*: admin password — stored as hash
+                - `maxTrys` *(optional, default: 10)*: maximum number of attempts before DLQ
+                - `circuitBreakerTimer` *(optional, default: 300)*: duration in seconds of the Circuit Breaker OPEN state
 
-                **Códigos de retorno:**
-                - `201 Created`: tenant e admin criados — inclui o `webhookSecret` gerado e dados do admin
-                - `400 Bad Request`: dados inválidos (e-mail mal formatado, senha vazia)
-                - `409 Conflict`: já existe um tenant com o mesmo nome, ou o e-mail já está em uso
+                **Return codes:**
+                - `201 Created`: tenant and admin created — includes the generated `webhookSecret` and admin data
+                - `400 Bad Request`: invalid data (malformed email, empty password)
+                - `409 Conflict`: a tenant with the same name already exists, or the email is already in use
                 """)
             .AllowAnonymous()
             .Produces<CreateTenantResponse>(StatusCodes.Status201Created)
@@ -60,7 +60,7 @@ public class CreateTenantEndpoint : IEndpoint
         var normalizedEmail = request.AdminEmail.Trim().ToLowerInvariant();
 
         if (await userRepository.EmailExistsAsync(normalizedEmail, ct))
-            return Results.Conflict($"E-mail '{request.AdminEmail}' já está em uso.");
+            return Results.Conflict($"Email '{request.AdminEmail}' is already in use.");
 
         Tenant tenant;
         try { tenant = new Tenant(request.Name, request.MaxTrys, request.CircuitBreakerTimer); }

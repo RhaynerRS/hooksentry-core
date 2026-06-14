@@ -20,7 +20,7 @@ internal static class CredentialValidator
             DestinationAuthType.BearerToken => ValidateBearerToken(credentials),
             DestinationAuthType.JwtBearer   => ValidateJwtBearer(credentials),
             DestinationAuthType.BasicAuth   => ValidateBasicAuth(credentials),
-            _ => $"AuthType '{authType}' não suportado."
+            _ => $"AuthType '{authType}' is not supported."
         };
 
     private static string? ValidateApiKey(JsonElement json)
@@ -30,15 +30,15 @@ internal static class CredentialValidator
 
         var headerName = json.GetProperty("headerName").GetString()!;
         if (headerName.Length > MaxHeaderNameLength)
-            return $"'headerName' não pode exceder {MaxHeaderNameLength} caracteres.";
+            return $"'headerName' cannot exceed {MaxHeaderNameLength} characters.";
         if (!InputSanitizer.IsValidHttpHeaderName(headerName))
-            return "'headerName' contém caracteres inválidos. Use apenas letras, dígitos e hífens.";
+            return "'headerName' contains invalid characters. Use only letters, digits and hyphens.";
 
         var value = json.GetProperty("value").GetString()!;
         if (value.Length > MaxHeaderValueLength)
-            return $"'value' não pode exceder {MaxHeaderValueLength} caracteres.";
+            return $"'value' cannot exceed {MaxHeaderValueLength} characters.";
         if (InputSanitizer.HasControlChars(value))
-            return "'value' não pode conter caracteres de controle (\\r, \\n, \\0).";
+            return "'value' cannot contain control characters (\\r, \\n, \\0).";
 
         return null;
     }
@@ -50,9 +50,9 @@ internal static class CredentialValidator
 
         var token = json.GetProperty("token").GetString()!;
         if (token.Length > MaxTokenLength)
-            return $"'token' não pode exceder {MaxTokenLength} caracteres.";
+            return $"'token' cannot exceed {MaxTokenLength} characters.";
         if (InputSanitizer.HasControlChars(token))
-            return "'token' não pode conter caracteres de controle (\\r, \\n, \\0).";
+            return "'token' cannot contain control characters (\\r, \\n, \\0).";
 
         return null;
     }
@@ -68,24 +68,24 @@ internal static class CredentialValidator
 
         var clientId = json.GetProperty("clientId").GetString()!;
         if (clientId.Length > MaxIdentifierLength)
-            return $"'clientId' não pode exceder {MaxIdentifierLength} caracteres.";
+            return $"'clientId' cannot exceed {MaxIdentifierLength} characters.";
         if (InputSanitizer.HasControlChars(clientId))
-            return "'clientId' não pode conter caracteres de controle.";
+            return "'clientId' cannot contain control characters.";
 
         var clientSecret = json.GetProperty("clientSecret").GetString()!;
         if (clientSecret.Length > MaxIdentifierLength)
-            return $"'clientSecret' não pode exceder {MaxIdentifierLength} caracteres.";
+            return $"'clientSecret' cannot exceed {MaxIdentifierLength} characters.";
         if (InputSanitizer.HasControlChars(clientSecret))
-            return "'clientSecret' não pode conter caracteres de controle.";
+            return "'clientSecret' cannot contain control characters.";
 
         if (json.TryGetProperty("scope", out var scopeProp) &&
             scopeProp.ValueKind == JsonValueKind.String)
         {
             var scope = scopeProp.GetString()!;
             if (scope.Length > MaxScopeLength)
-                return $"'scope' não pode exceder {MaxScopeLength} caracteres.";
+                return $"'scope' cannot exceed {MaxScopeLength} characters.";
             if (InputSanitizer.HasControlChars(scope))
-                return "'scope' não pode conter caracteres de controle.";
+                return "'scope' cannot contain control characters.";
         }
 
         return null;
@@ -98,17 +98,17 @@ internal static class CredentialValidator
 
         var username = json.GetProperty("username").GetString()!;
         if (username.Length > MaxIdentifierLength)
-            return $"'username' não pode exceder {MaxIdentifierLength} caracteres.";
+            return $"'username' cannot exceed {MaxIdentifierLength} characters.";
         if (InputSanitizer.HasControlChars(username))
-            return "'username' não pode conter caracteres de controle.";
+            return "'username' cannot contain control characters.";
         if (username.Contains(':'))
-            return "'username' não pode conter ':' (RFC 7617 — Basic Auth não suporta dois-pontos no username).";
+            return "'username' cannot contain ':' (RFC 7617 — Basic Auth does not support colons in username).";
 
         var password = json.GetProperty("password").GetString()!;
         if (password.Length > MaxIdentifierLength)
-            return $"'password' não pode exceder {MaxIdentifierLength} caracteres.";
+            return $"'password' cannot exceed {MaxIdentifierLength} characters.";
         if (InputSanitizer.HasControlChars(password))
-            return "'password' não pode conter caracteres de controle.";
+            return "'password' cannot contain control characters.";
 
         return null;
     }
@@ -120,7 +120,7 @@ internal static class CredentialValidator
             if (!json.TryGetProperty(field, out var prop) ||
                 prop.ValueKind != JsonValueKind.String ||
                 string.IsNullOrWhiteSpace(prop.GetString()))
-                return $"Campo '{field}' é obrigatório e não pode ser vazio.";
+                return $"Field '{field}' is required and cannot be empty.";
         }
         return null;
     }
@@ -128,10 +128,10 @@ internal static class CredentialValidator
     private static string? ValidateHttpsUrl(string url, int maxLength, string fieldName)
     {
         if (url.Length > maxLength)
-            return $"'{fieldName}' não pode exceder {maxLength} caracteres.";
+            return $"'{fieldName}' cannot exceed {maxLength} characters.";
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
             !uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase))
-            return $"'{fieldName}' deve ser uma URL HTTPS válida (SSRF: URLs não-HTTPS não são aceitas).";
+            return $"'{fieldName}' must be a valid HTTPS URL (SSRF: non-HTTPS URLs are not accepted).";
         return null;
     }
 }

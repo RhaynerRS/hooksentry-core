@@ -17,27 +17,27 @@ public class UpdateUserEndpoint : IEndpoint
         app.MapPatch("/api/v1/users/{id:guid}", Handle)
             .WithName("UpdateUser")
             .WithTags("Users")
-            .WithSummary("Atualiza parcialmente um usuário")
+            .WithSummary("Partially updates a user")
             .WithDescription("""
-                Atualiza campos de um usuário pertencente ao tenant autenticado (RNF-007).
-                Apenas campos enviados no body são alterados — os demais permanecem inalterados.
+                Updates fields of a user belonging to the authenticated tenant (RNF-007).
+                Only fields included in the body are changed — others remain unchanged.
 
-                **Parâmetros de rota:**
-                - `id` *(obrigatório)*: UUID do usuário
+                **Route parameters:**
+                - `id` *(required)*: user UUID
 
-                **Body** *(todos os campos são opcionais):*
-                - `email`: novo endereço de e-mail único na plataforma (RN-001)
-                - `password`: nova senha em texto plano — será armazenada como hash
-                - `role`: novo perfil — `0` = Developer, `1` = Admin
-                - `status`: novo status — `0` = Active, `1` = Inactive
+                **Body** *(all fields optional):*
+                - `email`: new unique email address on the platform (RN-001)
+                - `password`: new plain text password — will be stored as hash
+                - `role`: new role — `0` = Developer, `1` = Admin
+                - `status`: new status — `0` = Active, `1` = Inactive
 
-                **Códigos de retorno:**
-                - `200 OK`: usuário atualizado com sucesso
-                - `400 Bad Request`: valor inválido (e-mail mal formatado, role fora do domínio)
-                - `401 Unauthorized`: token ausente ou inválido
-                - `403 Forbidden`: usuário pertence a outro tenant (RNF-007)
-                - `404 Not Found`: usuário não encontrado
-                - `409 Conflict`: e-mail já está em uso por outro usuário (RN-001)
+                **Return codes:**
+                - `200 OK`: user updated successfully
+                - `400 Bad Request`: invalid value (malformed email, role out of domain)
+                - `401 Unauthorized`: missing or invalid token
+                - `403 Forbidden`: user belongs to another tenant (RNF-007)
+                - `404 Not Found`: user not found
+                - `409 Conflict`: email is already in use by another user (RN-001)
                 """)
             .RequireAuthorization()
             .Produces<UserResponse>()
@@ -73,7 +73,7 @@ public class UpdateUserEndpoint : IEndpoint
 
             var normalizedEmail = request.Email.Trim().ToLowerInvariant();
             if (await userRepository.EmailExistsExcludingAsync(normalizedEmail, id, ct))
-                return Results.Conflict($"E-mail '{request.Email}' já está em uso.");
+                return Results.Conflict($"Email '{request.Email}' is already in use.");
         }
 
         try

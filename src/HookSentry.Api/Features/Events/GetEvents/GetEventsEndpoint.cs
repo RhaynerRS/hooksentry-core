@@ -18,22 +18,22 @@ public class GetEventsEndpoint : IEndpoint
         app.MapGet("/api/v1/events", Handle)
             .WithName("GetEvents")
             .WithTags("Events")
-            .WithSummary("Lista eventos do tenant autenticado com paginação e filtros")
+            .WithSummary("Lists events in the authenticated tenant with pagination and filters")
             .WithDescription("""
-                Retorna uma página de eventos pertencentes ao tenant autenticado.
+                Returns a page of events belonging to the authenticated tenant.
 
-                **Paginação** *(todos opcionais — possuem valores padrão):*
-                - `Qt`: itens por página (padrão: `10`)
-                - `Pg`: número da página, base 1 (padrão: `1`)
-                - `CpOrd`: campo de ordenação (padrão: `acceptedAt`)
-                - `TpOrd`: direção — `Asc` ou `Desc` (padrão: `Desc`)
+                **Pagination** *(all optional — have default values):*
+                - `Qt`: items per page (default: `10`)
+                - `Pg`: page number, 1-based (default: `1`)
+                - `CpOrd`: sort field (default: `acceptedAt`)
+                - `TpOrd`: direction — `Asc` or `Desc` (default: `Desc`)
 
-                **Filtros** *(todos opcionais):*
-                - `Status`: filtra por status do evento — `Pending`, `Processing`, `Succeeded`,
+                **Filters** *(all optional):*
+                - `Status`: filter by event status — `Pending`, `Processing`, `Succeeded`,
                   `Failed`, `WaitingRetry`, `CriticalFailure`, `Cancelled`
-                - `DestinationUrlId`: filtra por UUID da URL de destino
-                - `From`: filtra eventos aceitos a partir desta data/hora (ISO 8601)
-                - `To`: filtra eventos aceitos até esta data/hora (ISO 8601)
+                - `DestinationUrlId`: filter by destination URL UUID
+                - `From`: filter events accepted from this date/time (ISO 8601)
+                - `To`: filter events accepted up to this date/time (ISO 8601)
                 """)
             .RequireAuthorization()
             .Produces<PaginationResponse<EventResponse>>()
@@ -53,7 +53,7 @@ public class GetEventsEndpoint : IEndpoint
         if (request.Status is not null)
         {
             if (!Enum.TryParse<EventStatus>(request.Status, ignoreCase: true, out var parsedStatus))
-                return Results.BadRequest($"Status inválido: '{request.Status}'.");
+                return Results.BadRequest($"Invalid status: '{request.Status}'.");
             baseQuery = baseQuery.Where(e => e.Status == parsedStatus);
         }
 

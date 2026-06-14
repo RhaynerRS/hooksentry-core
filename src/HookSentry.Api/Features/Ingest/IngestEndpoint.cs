@@ -23,39 +23,39 @@ public class IngestEndpoint : IEndpoint
         app.MapPost("/api/v1/ingest/{tenantId:guid}/{token}", Handle)
             .WithName("IngestEvent")
             .WithTags("Ingest")
-            .WithSummary("Ingere um evento via ingest token")
+            .WithSummary("Ingests an event via ingest token")
             .WithDescription("""
-                Recebe um payload JSON arbitrário e o persiste para entrega assíncrona na URL de destino
-                associada ao ingest token informado.
+                Receives an arbitrary JSON payload and persists it for asynchronous delivery to the destination URL
+                associated with the provided ingest token.
 
-                **Dois tipos de token são aceitos:**
-                - `dst_<token>` — token da URL de destino; payload entregue sem transformação
-                - `sndr_<token>` — token de sender; payload transformado pelo mapeamento configurado (se houver)
+                **Two token types are accepted:**
+                - `dst_<token>` — destination URL token; payload delivered without transformation
+                - `sndr_<token>` — sender token; payload transformed by the configured mapping (if any)
 
-                Configure a URL `https://{host}/api/v1/ingest/{tenantId}/{token}` diretamente no serviço
-                externo que emite os webhooks — sem necessidade de estruturar o payload.
+                Configure the URL `https://{host}/api/v1/ingest/{tenantId}/{token}` directly in the external service
+                that emits webhooks — no need to structure the payload.
 
-                **Parâmetros de rota:**
-                - `tenantId` *(obrigatório)*: UUID do tenant
-                - `token` *(obrigatório)*: ingest token da URL de destino ou do sender
+                **Route parameters:**
+                - `tenantId` *(required)*: tenant UUID
+                - `token` *(required)*: ingest token of the destination URL or sender
 
                 **Headers:**
-                - `X-Api-Key` *(obrigatório)*: chave de API para autenticação
-                - `X-Idempotency-Key` *(opcional)*: chave de até 255 caracteres — se já existir um evento
-                  com a mesma chave para este tenant, retorna `200 OK` com os dados do evento original
-                  sem reprocessar
+                - `X-Api-Key` *(required)*: API key for authentication
+                - `X-Idempotency-Key` *(optional)*: key of up to 255 characters — if an event already exists
+                  with the same key for this tenant, returns `200 OK` with the original event data
+                  without reprocessing
 
                 **Body:**
-                - Objeto JSON arbitrário a ser entregue na URL de destino
+                - Arbitrary JSON object to be delivered to the destination URL
 
-                **Códigos de retorno:**
-                - `202 Accepted`: evento aceito para entrega assíncrona
-                - `200 OK`: evento duplicado retornado via idempotency key
-                - `400 Bad Request`: payload inválido ou token com formato inválido
-                - `401 Unauthorized`: API key ausente ou inválida
-                - `403 Forbidden`: ingest token pertence a outro tenant
-                - `404 Not Found`: ingest token ou tenant não encontrado
-                - `422 Unprocessable Entity`: URL de destino inativa ou suspensa
+                **Return codes:**
+                - `202 Accepted`: event accepted for asynchronous delivery
+                - `200 OK`: duplicate event returned via idempotency key
+                - `400 Bad Request`: invalid payload or token with invalid format
+                - `401 Unauthorized`: missing or invalid API key
+                - `403 Forbidden`: ingest token belongs to another tenant
+                - `404 Not Found`: ingest token or tenant not found
+                - `422 Unprocessable Entity`: destination URL inactive or suspended
                 """)
             .RequireAuthorization(policy => policy
                 .AddAuthenticationSchemes(AuthExtensions.ApiKeyScheme)
@@ -123,7 +123,7 @@ public class IngestEndpoint : IEndpoint
                 destinationRepository, senderRepository, eventRepository, tenantRepository, uowFactory,
                 publisher, idempotencyStore, destinationCache, ct);
 
-        return Results.BadRequest("Token inválido: prefixo não reconhecido.");
+        return Results.BadRequest("Invalid token: unrecognized prefix.");
     }
 
     private static async Task<IResult> HandleDestinationToken(
@@ -139,7 +139,7 @@ public class IngestEndpoint : IEndpoint
         var tokenHash = IngestToken.Hash(token);
         var destination = await destinationRepository.FindByIngestTokenHashAsync(tokenHash, ct);
 
-        if (destination is null) return Results.NotFound("Ingest token não encontrado.");
+        if (destination is null) return Results.NotFound("Ingest token not found.");
         if (destination.TenantId != tenantId) return Results.Forbid();
         if (!destination.IsActive())
             return Results.UnprocessableEntity($"Destination '{destination.Id}' is not active.");
@@ -166,7 +166,7 @@ public class IngestEndpoint : IEndpoint
         var tokenHash = IngestToken.Hash(token);
         var sender = await senderRepository.FindByIngestTokenHashAsync(tokenHash, ct);
 
-        if (sender is null) return Results.NotFound("Ingest token não encontrado.");
+        if (sender is null) return Results.NotFound("Ingest token not found.");
         if (sender.TenantId != tenantId) return Results.Forbid();
 
         var payloadJson = payload.GetRawText();
@@ -221,10 +221,10 @@ public class IngestEndpoint : IEndpoint
         if (tenant is null)
             return Results.NotFound($"Tenant '{tenantId}' not found.");
 
-        Event evento;
+        Event evt;
         try
         {
-            evento = new Event(tenantId, destinationId, payloadJson, idempotencyKey);
+            evt = new Event(tenantId, destinationId, payloadJson, idempotencyKey);
         }
         catch (ArgumentException ex)
         {
@@ -232,22 +232,22 @@ public class IngestEndpoint : IEndpoint
         }
 
         await using var uow = uowFactory.Create();
-        await eventRepository.AddAsync(evento, ct);
+        await eventRepository.AddAsync(evt, ct);
         await uow.CommitAsync(ct);
 
         if (idempotencyKey is not null)
         {
-            try { await idempotencyStore.StoreAsync(tenantId, idempotencyKey, evento.Id, ct); }
+            try { await idempotencyStore.StoreAsync(tenantId, idempotencyKey, evt.Id, ct); }
             catch { /* Redis unavailable — idempotency degrades to DB-only on next request */ }
         }
 
         await publisher.PublishAsync(new EventMessage(
-            EventId: evento.Id,
-            TenantId: evento.TenantId,
-            DestinationUrlId: evento.DestinationUrlId,
+            EventId: evt.Id,
+            TenantId: evt.TenantId,
+            DestinationUrlId: evt.DestinationUrlId,
             DestinationUrl: destinationUrl,
-            Payload: evento.Payload,
-            RetryCount: evento.CurrentRetryCount,
+            Payload: evt.Payload,
+            RetryCount: evt.CurrentRetryCount,
             MaxTrys: tenant.MaxTrys,
             WebhookSecret: tenant.WebhookSecret,
             ServerRateLimit: serverRateLimit,
@@ -256,7 +256,7 @@ public class IngestEndpoint : IEndpoint
         ), ct);
 
         return Results.Accepted(
-            $"/api/v1/events/{evento.Id}",
-            new EventAcceptedResponse(evento.Id, evento.Status.ToString(), evento.AcceptedAt));
+            $"/api/v1/events/{evt.Id}",
+            new EventAcceptedResponse(evt.Id, evt.Status.ToString(), evt.AcceptedAt));
     }
 }

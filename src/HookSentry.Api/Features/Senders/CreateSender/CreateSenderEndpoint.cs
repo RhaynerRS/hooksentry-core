@@ -17,26 +17,26 @@ public class CreateSenderEndpoint : IEndpoint
         app.MapPost("/api/v1/destinations/{destinationId:guid}/senders", Handle)
             .WithName("CreateSender")
             .WithTags("Senders")
-            .WithSummary("Registra um sender para uma URL de destino")
+            .WithSummary("Registers a sender for a destination URL")
             .WithDescription("""
-                Cria um WebhookSender vinculado a uma URL de destino. O sender recebe seu próprio
-                ingest token — use-o como URL no serviço externo para acionar a normalização de payload.
+                Creates a WebhookSender linked to a destination URL. The sender receives its own
+                ingest token — use it as the URL in the external service to trigger payload normalization.
 
-                O `ingestToken` retornado no `201` é exibido **uma única vez** — guarde-o para configurar
-                o webhook no serviço externo. Use `POST /api/v1/senders/{id}/ingest-token` para regenerar.
+                The `ingestToken` returned in the `201` is shown **only once** — save it to configure
+                the webhook in the external service. Use `POST /api/v1/senders/{id}/ingest-token` to regenerate.
 
-                **Parâmetros de rota:**
-                - `destinationId` *(obrigatório)*: UUID da URL de destino
+                **Route parameters:**
+                - `destinationId` *(required)*: destination URL UUID
 
                 **Body:**
-                - `label` *(opcional)*: nome descritivo para identificação no dashboard (máx. 255 caracteres)
+                - `label` *(optional)*: descriptive name for identification in the dashboard (max 255 characters)
 
-                **Códigos de retorno:**
-                - `201 Created`: sender criado com ingest token
-                - `400 Bad Request`: label inválido ou caracteres de controle
-                - `401 Unauthorized`: token JWT ausente ou inválido
-                - `403 Forbidden`: URL de destino pertence a outro tenant
-                - `404 Not Found`: URL de destino não encontrada
+                **Return codes:**
+                - `201 Created`: sender created with ingest token
+                - `400 Bad Request`: invalid label or control characters
+                - `401 Unauthorized`: missing or invalid JWT token
+                - `403 Forbidden`: destination URL belongs to another tenant
+                - `404 Not Found`: destination URL not found
                 """)
             .RequireAuthorization()
             .Produces<CreateSenderResponse>(StatusCodes.Status201Created)

@@ -35,7 +35,7 @@ public class ApiKey
     public virtual void Revoke()
     {
         if (!IsActive)
-            throw new InvalidOperationException("API key já está revogada.");
+            throw new InvalidOperationException("API key is already revoked.");
         IsActive = false;
         RevokedAt = DateTimeOffset.UtcNow;
     }
@@ -43,16 +43,16 @@ public class ApiKey
     public virtual void SetTenantId(Guid tenantId)
     {
         if (tenantId == Guid.Empty)
-            throw new ArgumentException("TenantId não pode ser vazio.", nameof(tenantId));
+            throw new ArgumentException("TenantId cannot be empty.", nameof(tenantId));
         TenantId = tenantId;
     }
 
     public virtual void SetName(string name)
     {
         if (string.IsNullOrWhiteSpace(name))
-            throw new ArgumentException("Name não pode ser nulo ou vazio.", nameof(name));
+            throw new ArgumentException("Name cannot be null or empty.", nameof(name));
         if (name.Length > 100)
-            throw new ArgumentException("Name não pode exceder 100 caracteres.", nameof(name));
+            throw new ArgumentException("Name cannot exceed 100 characters.", nameof(name));
         Name = name;
     }
 

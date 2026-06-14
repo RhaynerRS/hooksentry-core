@@ -13,20 +13,20 @@ public class GetUserEndpoint : IEndpoint
         app.MapGet("/api/v1/users/{id:guid}", Handle)
             .WithName("GetUserById")
             .WithTags("Users")
-            .WithSummary("Retorna os dados de um usuário pelo ID")
+            .WithSummary("Returns a user's data by ID")
             .WithDescription("""
-                Busca um usuário pelo seu UUID.
-                O usuário deve pertencer ao tenant do token JWT (RNF-007).
-                O campo `password` nunca é retornado.
+                Looks up a user by their UUID.
+                The user must belong to the tenant from the JWT token (RNF-007).
+                The `password` field is never returned.
 
-                **Parâmetros de rota:**
-                - `id` *(obrigatório)*: UUID do usuário
+                **Route parameters:**
+                - `id` *(required)*: user UUID
 
-                **Códigos de retorno:**
-                - `200 OK`: dados do usuário (sem campo password)
-                - `401 Unauthorized`: token ausente ou inválido
-                - `403 Forbidden`: usuário pertence a outro tenant (RNF-007)
-                - `404 Not Found`: usuário não encontrado
+                **Return codes:**
+                - `200 OK`: user data (without password field)
+                - `401 Unauthorized`: missing or invalid token
+                - `403 Forbidden`: user belongs to another tenant (RNF-007)
+                - `404 Not Found`: user not found
                 """)
             .RequireAuthorization()
             .Produces<UserResponse>()

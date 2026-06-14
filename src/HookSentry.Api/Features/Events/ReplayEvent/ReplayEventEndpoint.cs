@@ -17,22 +17,22 @@ public class ReplayEventEndpoint : IEndpoint
         app.MapPost("/api/v1/events/{id:guid}/replay", Handle)
             .WithName("ReplayEvent")
             .WithTags("Events")
-            .WithSummary("Reenvia manualmente um evento com status CriticalFailure")
+            .WithSummary("Manually replays an event with CriticalFailure status")
             .WithDescription("""
-                Reprocessa um evento que esgotou todas as tentativas automáticas (RF-013).
+                Reprocesses an event that exhausted all automatic retry attempts (RF-013).
 
-                **Parâmetros de rota:**
-                - `id` *(obrigatório)*: UUID do evento a ser reenviado
+                **Route parameters:**
+                - `id` *(required)*: UUID of the event to replay
 
-                **Pré-condição:** o evento deve estar com status `CriticalFailure`.
-                Qualquer outro status retorna `400 Bad Request`.
+                **Precondition:** the event must have `CriticalFailure` status.
+                Any other status returns `400 Bad Request`.
 
-                **Efeitos ao reprocessar:**
-                - `currentRetryCount` é zerado
-                - `nextAttemptAt` é definido como `now()`
-                - `status` é alterado para `Pending`
+                **Effects when replaying:**
+                - `currentRetryCount` is reset to zero
+                - `nextAttemptAt` is set to `now()`
+                - `status` is changed to `Pending`
 
-                Retorna `403 Forbidden` se o evento pertencer a outro tenant (RNF-007).
+                Returns `403 Forbidden` if the event belongs to another tenant (RNF-007).
                 """)
             .RequireAuthorization()
             .Produces<EventResponse>()
@@ -56,31 +56,31 @@ public class ReplayEventEndpoint : IEndpoint
 
         await using var uow = uowFactory.Create();
 
-        var evento = await eventRepository.FindAsync(id, ct);
+        var evt = await eventRepository.FindAsync(id, ct);
 
-        if (evento is null)
+        if (evt is null)
             return Results.NotFound();
 
-        if (evento.TenantId != tenantId)
+        if (evt.TenantId != tenantId)
             return Results.Forbid();
 
-        var destination = await destinationRepository.FindAsync(evento.DestinationUrlId, ct);
-        var tenant = await tenantRepository.FindAsync(evento.TenantId, ct);
+        var destination = await destinationRepository.FindAsync(evt.DestinationUrlId, ct);
+        var tenant = await tenantRepository.FindAsync(evt.TenantId, ct);
 
         if (destination is null || tenant is null)
-            return Results.Problem("Dados do destino ou tenant não encontrados.");
+            return Results.Problem("Destination or tenant data not found.");
 
-        try { evento.ResetForReplay(); }
+        try { evt.ResetForReplay(); }
         catch (InvalidOperationException ex) { return Results.BadRequest(ex.Message); }
 
         await uow.CommitAsync(ct);
 
         await publisher.PublishAsync(new EventMessage(
-            EventId: evento.Id,
-            TenantId: evento.TenantId,
-            DestinationUrlId: evento.DestinationUrlId,
+            EventId: evt.Id,
+            TenantId: evt.TenantId,
+            DestinationUrlId: evt.DestinationUrlId,
             DestinationUrl: destination.Url,
-            Payload: evento.Payload,
+            Payload: evt.Payload,
             RetryCount: 0,
             MaxTrys: tenant.MaxTrys,
             WebhookSecret: tenant.WebhookSecret,
@@ -89,6 +89,6 @@ public class ReplayEventEndpoint : IEndpoint
             CredentialsEncrypted: destination.CredentialsEncrypted
         ), ct);
 
-        return Results.Ok(EventResponse.From(evento));
+        return Results.Ok(EventResponse.From(evt));
     }
 }

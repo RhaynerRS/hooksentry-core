@@ -18,22 +18,22 @@ public class GetApiKeysEndpoint : IEndpoint
         app.MapGet("/api/v1/apikeys", Handle)
             .WithName("GetApiKeys")
             .WithTags("API Keys")
-            .WithSummary("Lista API keys do tenant autenticado")
+            .WithSummary("Lists API keys of the authenticated tenant")
             .WithDescription("""
-                Retorna uma página de API keys pertencentes ao tenant autenticado.
+                Returns a page of API keys belonging to the authenticated tenant.
 
-                **Paginação** *(todos opcionais — possuem valores padrão):*
-                - `Qt`: itens por página (padrão: `10`)
-                - `Pg`: número da página, base 1 (padrão: `1`)
-                - `CpOrd`: campo de ordenação, case-insensitive (padrão: `id`)
-                - `TpOrd`: direção — `Asc` ou `Desc` (padrão: `Desc`)
+                **Pagination** *(all optional — have default values):*
+                - `Qt`: items per page (default: `10`)
+                - `Pg`: page number, 1-based (default: `1`)
+                - `CpOrd`: sort field, case-insensitive (default: `id`)
+                - `TpOrd`: direction — `Asc` or `Desc` (default: `Desc`)
 
-                **Filtros** *(todos opcionais):*
-                - `IsActive`: `true` para ativas, `false` para revogadas
+                **Filters** *(all optional):*
+                - `IsActive`: `true` for active, `false` for revoked
 
-                **Códigos de retorno:**
-                - `200 OK`: lista paginada de API keys
-                - `401 Unauthorized`: JWT ausente ou inválido
+                **Return codes:**
+                - `200 OK`: paginated list of API keys
+                - `401 Unauthorized`: missing or invalid JWT
                 """)
             .RequireAuthorization()
             .Produces<PaginationResponse<ApiKeyResponse>>()

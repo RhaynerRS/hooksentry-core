@@ -27,9 +27,9 @@ public class Tenant
     public virtual void UpdateSettings(int maxTrys, int circuitBreakerTimer)
     {
         if (maxTrys < 1)
-            throw new ArgumentOutOfRangeException(nameof(maxTrys), "MaxTrys deve ser no mínimo 1.");
+            throw new ArgumentOutOfRangeException(nameof(maxTrys), "MaxTrys must be at least 1.");
         if (circuitBreakerTimer < 1)
-            throw new ArgumentOutOfRangeException(nameof(circuitBreakerTimer), "CircuitBreakerTimer deve ser no mínimo 1 segundo.");
+            throw new ArgumentOutOfRangeException(nameof(circuitBreakerTimer), "CircuitBreakerTimer must be at least 1 second.");
 
         MaxTrys = maxTrys;
         CircuitBreakerTimer = circuitBreakerTimer;

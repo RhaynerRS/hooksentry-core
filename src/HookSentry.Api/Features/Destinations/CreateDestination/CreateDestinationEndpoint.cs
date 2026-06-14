@@ -17,32 +17,32 @@ public class CreateDestinationEndpoint : IEndpoint
         app.MapPost("/api/v1/destinations", Handle)
             .WithName("CreateDestination")
             .WithTags("Destinations")
-            .WithSummary("Cadastra uma nova URL de destino para o tenant autenticado")
+            .WithSummary("Registers a new destination URL for the authenticated tenant")
             .WithDescription("""
-                Registra uma URL HTTPS de destino para receber webhooks entregues pelo HookSentry.
+                Registers an HTTPS destination URL to receive webhooks delivered by HookSentry.
 
                 **Body:**
-                - `url` *(obrigatório)*: URL HTTPS válida do endpoint de destino
-                - `serverRateLimit` *(opcional, padrão: 5)*: número máximo de requisições simultâneas (RF-006)
-                - `authType` *(opcional)*: tipo de autenticação — `ApiKey`, `BearerToken`, `JwtBearer`, `BasicAuth`
-                - `credentials` *(obrigatório se authType informado)*: objeto JSON com as credenciais (RF-019)
+                - `url` *(required)*: valid HTTPS URL of the destination endpoint
+                - `serverRateLimit` *(optional, default: 5)*: maximum number of concurrent requests (RF-006)
+                - `authType` *(optional)*: authentication type — `ApiKey`, `BearerToken`, `JwtBearer`, `BasicAuth`
+                - `credentials` *(required if authType provided)*: JSON object with credentials (RF-019)
 
-                **Estrutura de `credentials` por tipo:**
+                **`credentials` structure by type:**
                 - `ApiKey`: `{ "headerName": "X-Api-Key", "value": "..." }`
                 - `BearerToken`: `{ "token": "..." }`
                 - `JwtBearer`: `{ "tokenEndpoint": "https://...", "clientId": "...", "clientSecret": "...", "scope": "..." }`
                 - `BasicAuth`: `{ "username": "...", "password": "..." }`
 
-                As credenciais são criptografadas com AES-256-GCM antes de persistir. Nunca são retornadas em respostas.
+                Credentials are encrypted with AES-256-GCM before persisting. They are never returned in responses.
 
-                O `ingestToken` retornado no `201` é exibido **uma única vez** — guarde-o para configurar
-                o webhook no serviço externo. Use `POST /api/v1/destinations/{id}/ingest-token` para reger.
+                The `ingestToken` returned in the `201` is shown **only once** — save it to configure
+                the webhook in the external service. Use `POST /api/v1/destinations/{id}/ingest-token` to regenerate.
 
-                **Códigos de retorno:**
-                - `201 Created`: URL de destino criada
-                - `400 Bad Request`: URL inválida, credenciais malformadas ou authType desconhecido
-                - `401 Unauthorized`: token ausente ou inválido
-                - `404 Not Found`: tenant não encontrado
+                **Return codes:**
+                - `201 Created`: destination URL created
+                - `400 Bad Request`: invalid URL, malformed credentials, or unknown authType
+                - `401 Unauthorized`: missing or invalid token
+                - `404 Not Found`: tenant not found
                 """)
             .RequireAuthorization()
             .Produces<CreateDestinationResponse>(StatusCodes.Status201Created)
@@ -72,14 +72,14 @@ public class CreateDestinationEndpoint : IEndpoint
         if (request.AuthType is not null || request.Credentials.HasValue)
         {
             if (request.AuthType is null)
-                return Results.BadRequest("'authType' é obrigatório quando 'credentials' é informado.");
+                return Results.BadRequest("'authType' is required when 'credentials' is provided.");
 
             if (!request.Credentials.HasValue)
-                return Results.BadRequest("'credentials' é obrigatório quando 'authType' é informado.");
+                return Results.BadRequest("'credentials' is required when 'authType' is provided.");
 
             if (!Enum.TryParse<DestinationAuthType>(request.AuthType, ignoreCase: true, out var parsedType))
                 return Results.BadRequest(
-                    $"AuthType '{request.AuthType}' inválido. Valores aceitos: ApiKey, BearerToken, JwtBearer, BasicAuth.");
+                    $"Invalid AuthType '{request.AuthType}'. Accepted values: ApiKey, BearerToken, JwtBearer, BasicAuth.");
 
             var validationError = CredentialValidator.Validate(parsedType, request.Credentials.Value);
             if (validationError is not null)

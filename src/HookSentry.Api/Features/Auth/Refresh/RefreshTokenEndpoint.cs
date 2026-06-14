@@ -15,18 +15,18 @@ public class RefreshTokenEndpoint : IEndpoint
         app.MapPost("/api/v1/auth/refresh", Handle)
             .WithName("RefreshToken")
             .WithTags("Auth")
-            .WithSummary("Renova o access token usando um refresh token válido")
+            .WithSummary("Renews the access token using a valid refresh token")
             .WithDescription("""
-                Troca um refresh token ativo por um novo par de tokens (access token + refresh token).
-                O refresh token informado é consumido atomicamente (single-use via Redis GETDEL).
+                Exchanges an active refresh token for a new token pair (access token + refresh token).
+                The provided refresh token is consumed atomically (single-use via Redis GETDEL).
 
                 **Body:**
-                - `refreshToken` *(obrigatório)*: refresh token obtido no login ou em refresh anterior
+                - `refreshToken` *(required)*: refresh token obtained at login or from a previous refresh
 
-                **Códigos de retorno:**
-                - `200 OK`: novos tokens emitidos com sucesso
-                - `400 Bad Request`: campo obrigatório ausente
-                - `401 Unauthorized`: refresh token inválido, expirado ou já utilizado
+                **Return codes:**
+                - `200 OK`: new tokens issued successfully
+                - `400 Bad Request`: required field missing
+                - `401 Unauthorized`: invalid, expired, or already-used refresh token
                 """)
             .AllowAnonymous()
             .Produces<AuthResponse>()
@@ -42,7 +42,7 @@ public class RefreshTokenEndpoint : IEndpoint
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.RefreshToken))
-            return Results.BadRequest("RefreshToken é obrigatório.");
+            return Results.BadRequest("RefreshToken is required.");
         if (InputSanitizer.ValidateToken(request.RefreshToken) is { } tokenErr)
             return Results.BadRequest(tokenErr);
 

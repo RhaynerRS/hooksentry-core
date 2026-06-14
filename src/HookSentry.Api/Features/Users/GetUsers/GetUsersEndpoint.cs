@@ -18,25 +18,25 @@ public class GetUsersEndpoint : IEndpoint
         app.MapGet("/api/v1/users", Handle)
             .WithName("GetUsers")
             .WithTags("Users")
-            .WithSummary("Lista usuários do tenant autenticado com paginação")
+            .WithSummary("Lists users in the authenticated tenant with pagination")
             .WithDescription("""
-                Retorna uma página de usuários pertencentes ao tenant autenticado (RNF-007).
-                A listagem é sempre isolada por tenant — nunca expõe usuários de outros tenants.
+                Returns a page of users belonging to the authenticated tenant (RNF-007).
+                The listing is always isolated by tenant — never exposes users from other tenants.
 
-                **Paginação** *(todos opcionais — possuem valores padrão):*
-                - `Qt`: itens por página (padrão: `10`)
-                - `Pg`: número da página, base 1 (padrão: `1`)
-                - `CpOrd`: campo de ordenação, case-insensitive (padrão: `id`)
-                - `TpOrd`: direção — `0` = Asc, `1` = Desc (padrão: `1`)
+                **Pagination** *(all optional — have default values):*
+                - `Qt`: items per page (default: `10`)
+                - `Pg`: page number, 1-based (default: `1`)
+                - `CpOrd`: sort field, case-insensitive (default: `id`)
+                - `TpOrd`: direction — `0` = Asc, `1` = Desc (default: `1`)
 
-                **Filtros** *(todos opcionais):*
-                - `Status`: filtra por status — `0` = Active, `1` = Inactive
-                - `Role`: filtra por perfil — `0` = Developer, `1` = Admin
+                **Filters** *(all optional):*
+                - `Status`: filter by status — `0` = Active, `1` = Inactive
+                - `Role`: filter by role — `0` = Developer, `1` = Admin
 
-                **Códigos de retorno:**
-                - `200 OK`: lista paginada de usuários (sem campo password)
-                - `400 Bad Request`: campo de ordenação inválido
-                - `401 Unauthorized`: token ausente ou inválido
+                **Return codes:**
+                - `200 OK`: paginated list of users (without password field)
+                - `400 Bad Request`: invalid sort field
+                - `401 Unauthorized`: missing or invalid token
                 """)
             .RequireAuthorization()
             .Produces<PaginationResponse<UserResponse>>()

@@ -17,21 +17,21 @@ public class CreateApiKeyEndpoint : IEndpoint
         app.MapPost("/api/v1/apikeys", Handle)
             .WithName("CreateApiKey")
             .WithTags("API Keys")
-            .WithSummary("Cria uma nova API key")
+            .WithSummary("Creates a new API key")
             .WithDescription("""
-                Gera uma nova API key para o tenant autenticado. O valor em texto claro é retornado
-                **apenas nesta resposta** — armazene-o com segurança, pois não pode ser recuperado.
+                Generates a new API key for the authenticated tenant. The plain text value is returned
+                **only in this response** — store it securely, as it cannot be retrieved again.
 
-                A chave deve ser enviada no header `X-Api-Key` nas requisições ao endpoint de ingest.
+                The key must be sent in the `X-Api-Key` header on requests to the ingest endpoint.
 
                 **Body:**
-                - `name` *(obrigatório)*: nome descritivo da chave (máx. 100 caracteres)
+                - `name` *(required)*: descriptive key name (max 100 characters)
 
-                **Códigos de retorno:**
-                - `201 Created`: chave criada com sucesso — contém o valor em texto claro
-                - `400 Bad Request`: nome inválido
-                - `401 Unauthorized`: JWT ausente ou inválido
-                - `404 Not Found`: tenant não encontrado
+                **Return codes:**
+                - `201 Created`: key created successfully — contains the plain text value
+                - `400 Bad Request`: invalid name
+                - `401 Unauthorized`: missing or invalid JWT
+                - `404 Not Found`: tenant not found
                 """)
             .RequireAuthorization()
             .Produces<ApiKeyCreatedResponse>(StatusCodes.Status201Created)

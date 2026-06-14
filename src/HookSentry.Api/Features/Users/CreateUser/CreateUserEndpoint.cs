@@ -18,24 +18,24 @@ public class CreateUserEndpoint : IEndpoint
         app.MapPost("/api/v1/users", Handle)
             .WithName("CreateUser")
             .WithTags("Users")
-            .WithSummary("Cria um novo usuário no tenant autenticado")
+            .WithSummary("Creates a new user in the authenticated tenant")
             .WithDescription("""
-                Cria um novo usuário vinculado ao tenant do token JWT.
-                A senha é armazenada como hash — nunca em texto plano (RNF-008).
+                Creates a new user linked to the tenant from the JWT token.
+                The password is stored as a hash — never in plain text (RNF-008).
 
                 **Body:**
-                - `email` *(obrigatório)*: endereço de e-mail único na plataforma — máx. 255 caracteres (RN-001)
-                - `password` *(obrigatório)*: senha em texto plano — será armazenada como hash
-                - `role` *(opcional, padrão: `0` = Developer)*: perfil de acesso
-                  - `0` = Developer: gerencia URLs, API Keys e visualiza eventos do tenant
-                  - `1` = Admin: tudo do Developer + purga de fila e gerenciamento de usuários (RF-014)
+                - `email` *(required)*: unique email address on the platform — max 255 characters (RN-001)
+                - `password` *(required)*: plain text password — will be stored as hash
+                - `role` *(optional, default: `0` = Developer)*: access role
+                  - `0` = Developer: manages URLs, API Keys, and views tenant events
+                  - `1` = Admin: everything in Developer + queue purge and user management (RF-014)
 
-                **Códigos de retorno:**
-                - `201 Created`: usuário criado com sucesso
-                - `400 Bad Request`: dados inválidos (e-mail mal formatado, senha vazia)
-                - `401 Unauthorized`: token ausente ou inválido
-                - `404 Not Found`: tenant não encontrado
-                - `409 Conflict`: já existe um usuário com este e-mail (RN-001)
+                **Return codes:**
+                - `201 Created`: user created successfully
+                - `400 Bad Request`: invalid data (malformed email, empty password)
+                - `401 Unauthorized`: missing or invalid token
+                - `404 Not Found`: tenant not found
+                - `409 Conflict`: a user with this email already exists (RN-001)
                 """)
             .RequireAuthorization()
             .Produces<UserResponse>(StatusCodes.Status201Created)
@@ -66,7 +66,7 @@ public class CreateUserEndpoint : IEndpoint
         var normalizedEmail = request.Email.Trim().ToLowerInvariant();
 
         if (await userRepository.EmailExistsAsync(normalizedEmail, ct))
-            return Results.Conflict($"E-mail '{request.Email}' já está em uso.");
+            return Results.Conflict($"Email '{request.Email}' is already in use.");
 
         string passwordHash;
         try { passwordHash = passwordHasher.Hash(request.Password); }

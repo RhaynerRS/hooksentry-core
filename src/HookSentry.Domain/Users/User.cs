@@ -28,18 +28,18 @@ public class User
     private void SetTenantId(Guid tenantId)
     {
         if (tenantId == Guid.Empty)
-            throw new ArgumentException("TenantId não pode ser vazio.", nameof(tenantId));
+            throw new ArgumentException("TenantId cannot be empty.", nameof(tenantId));
         TenantId = tenantId;
     }
 
     public virtual void SetEmail(string email)
     {
         if (string.IsNullOrWhiteSpace(email))
-            throw new ArgumentException("Email não pode ser nulo ou vazio.", nameof(email));
+            throw new ArgumentException("Email cannot be null or empty.", nameof(email));
         if (email.Length > 255)
-            throw new ArgumentException("Email não pode ultrapassar 255 caracteres.", nameof(email));
+            throw new ArgumentException("Email cannot exceed 255 characters.", nameof(email));
         if (!email.Contains('@'))
-            throw new ArgumentException("Email deve ser um endereço válido.", nameof(email));
+            throw new ArgumentException("Email must be a valid address.", nameof(email));
         Email = email.Trim().ToLowerInvariant();
         UpdatedAt = DateTimeOffset.UtcNow;
     }
@@ -47,7 +47,7 @@ public class User
     public virtual void SetPasswordHash(string passwordHash)
     {
         if (string.IsNullOrWhiteSpace(passwordHash))
-            throw new ArgumentException("PasswordHash não pode ser nulo ou vazio.", nameof(passwordHash));
+            throw new ArgumentException("PasswordHash cannot be null or empty.", nameof(passwordHash));
         PasswordHash = passwordHash;
         UpdatedAt = DateTimeOffset.UtcNow;
     }
@@ -55,7 +55,7 @@ public class User
     public virtual void SetRole(UserRole role)
     {
         if (!Enum.IsDefined<UserRole>(role))
-            throw new ArgumentOutOfRangeException(nameof(role), "Role inválido.");
+            throw new ArgumentOutOfRangeException(nameof(role), "Invalid role.");
         Role = role;
         UpdatedAt = DateTimeOffset.UtcNow;
     }

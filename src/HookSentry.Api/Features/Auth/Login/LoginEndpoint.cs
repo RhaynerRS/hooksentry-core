@@ -18,19 +18,19 @@ public class LoginEndpoint : IEndpoint
         app.MapPost("/api/v1/auth/login", Handle)
             .WithName("Login")
             .WithTags("Auth")
-            .WithSummary("Autentica um usuário e retorna tokens de acesso")
+            .WithSummary("Authenticates a user and returns access tokens")
             .WithDescription("""
-                Autentica um usuário existente e retorna um access token JWT (TTL: 15 minutos) e um refresh token (TTL: 7 dias).
-                O refresh token é armazenado no Redis. O JWT é stateless — validado apenas por assinatura e expiração.
+                Authenticates an existing user and returns a JWT access token (TTL: 15 minutes) and a refresh token (TTL: 7 days).
+                The refresh token is stored in Redis. The JWT is stateless — validated only by signature and expiration.
 
                 **Body:**
-                - `email` *(obrigatório)*: e-mail do usuário
-                - `password` *(obrigatório)*: senha do usuário
+                - `email` *(required)*: user email
+                - `password` *(required)*: user password
 
-                **Códigos de retorno:**
-                - `200 OK`: autenticação bem-sucedida
-                - `400 Bad Request`: campos ausentes
-                - `401 Unauthorized`: credenciais incorretas ou usuário inativo
+                **Return codes:**
+                - `200 OK`: authentication successful
+                - `400 Bad Request`: missing required fields
+                - `401 Unauthorized`: invalid credentials or inactive user
                 """)
             .AllowAnonymous()
             .Produces<AuthResponse>()
@@ -47,9 +47,9 @@ public class LoginEndpoint : IEndpoint
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.Email))
-            return Results.BadRequest("Email é obrigatório.");
+            return Results.BadRequest("Email is required.");
         if (string.IsNullOrWhiteSpace(request.Password))
-            return Results.BadRequest("Senha é obrigatória.");
+            return Results.BadRequest("Password is required.");
 
         if (InputSanitizer.ValidateEmail(request.Email) is { } emailErr)
             return Results.BadRequest(emailErr);

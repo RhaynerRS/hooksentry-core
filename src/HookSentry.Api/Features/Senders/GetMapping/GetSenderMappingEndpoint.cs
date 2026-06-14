@@ -14,18 +14,18 @@ public class GetSenderMappingEndpoint : IEndpoint
         app.MapGet("/api/v1/senders/{id:guid}/mapping", Handle)
             .WithName("GetSenderMapping")
             .WithTags("Senders")
-            .WithSummary("Consulta o mapeamento de payload de um sender")
+            .WithSummary("Retrieves the payload mapping of a sender")
             .WithDescription("""
-                Retorna o mapeamento de payload configurado para o sender informado.
+                Returns the configured payload mapping for the specified sender.
 
-                **Parâmetros de rota:**
-                - `id` *(obrigatório)*: UUID do sender
+                **Route parameters:**
+                - `id` *(required)*: sender UUID
 
-                **Códigos de retorno:**
-                - `200 OK`: mapeamento configurado
-                - `401 Unauthorized`: token JWT ausente ou inválido
-                - `403 Forbidden`: sender pertence a outro tenant
-                - `404 Not Found`: sender não encontrado ou sem mapeamento configurado
+                **Return codes:**
+                - `200 OK`: configured mapping
+                - `401 Unauthorized`: missing or invalid JWT token
+                - `403 Forbidden`: sender belongs to another tenant
+                - `404 Not Found`: sender not found or no mapping configured
                 """)
             .RequireAuthorization()
             .Produces<SenderMappingResponse>()
@@ -45,7 +45,7 @@ public class GetSenderMappingEndpoint : IEndpoint
         var sender = await senderRepository.FindAsync(id, ct);
         if (sender is null) return Results.NotFound();
         if (sender.TenantId != tenantId) return Results.Forbid();
-        if (sender.Mapping is null) return Results.NotFound("Nenhum mapeamento configurado para este sender.");
+        if (sender.Mapping is null) return Results.NotFound("No mapping configured for this sender.");
 
         var mappingElement = JsonSerializer.Deserialize<JsonElement>(sender.Mapping);
         return Results.Ok(new SenderMappingResponse(mappingElement));

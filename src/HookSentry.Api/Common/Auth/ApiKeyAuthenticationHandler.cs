@@ -39,7 +39,7 @@ public class ApiKeyAuthenticationHandler(
                 .FirstOrDefaultAsync();
 
             if (match is null)
-                return AuthenticateResult.Fail("API key inválida ou revogada.");
+                return AuthenticateResult.Fail("Invalid or revoked API key.");
 
             entry = new ApiKeyCacheEntry(match.TenantId);
             await cache.SetAsync(hash, entry);

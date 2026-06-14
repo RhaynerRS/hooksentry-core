@@ -9,11 +9,11 @@ public class HealthCheckEndpoint : IEndpoint
         app.MapGet("/health", Handle)
             .WithName("GetHealth")
             .WithTags("Health")
-            .WithSummary("Verifica a saúde da API")
+            .WithSummary("Checks API health")
             .WithDescription("""
-                Endpoint público de health check. Retorna o status da API e o timestamp UTC atual.
+                Public health check endpoint. Returns API status and current UTC timestamp.
 
-                **Não requer autenticação.**
+                **No authentication required.**
                 """)
             .AllowAnonymous()
             .Produces<HealthResponse>();

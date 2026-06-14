@@ -13,22 +13,22 @@ public class DeleteUserEndpoint : IEndpoint
         app.MapDelete("/api/v1/users/{id:guid}", Handle)
             .WithName("DeleteUser")
             .WithTags("Users")
-            .WithSummary("Remove permanentemente um usuário")
+            .WithSummary("Permanently removes a user")
             .WithDescription("""
-                Exclui definitivamente um usuário do tenant autenticado.
-                Operação irreversível — use com confirmação explícita no frontend.
+                Permanently deletes a user from the authenticated tenant.
+                Irreversible operation — use with explicit confirmation in the frontend.
 
-                **Restrição de perfil:** apenas usuários com `role = Admin` podem executar esta operação.
-                O claim `role` do token JWT é usado para verificar o perfil — nunca o body (RNF-007).
+                **Role restriction:** only users with `role = Admin` can perform this operation.
+                The `role` claim from the JWT token is used to verify the role — never the body (RNF-007).
 
-                **Parâmetros de rota:**
-                - `id` *(obrigatório)*: UUID do usuário a ser excluído
+                **Route parameters:**
+                - `id` *(required)*: UUID of the user to delete
 
-                **Códigos de retorno:**
-                - `204 No Content`: usuário excluído com sucesso
-                - `401 Unauthorized`: token ausente, inválido ou sem claim `role`
-                - `403 Forbidden`: usuário autenticado não é Admin, ou o alvo pertence a outro tenant (RNF-007)
-                - `404 Not Found`: usuário não encontrado
+                **Return codes:**
+                - `204 No Content`: user deleted successfully
+                - `401 Unauthorized`: missing, invalid token, or missing `role` claim
+                - `403 Forbidden`: authenticated user is not Admin, or the target belongs to another tenant (RNF-007)
+                - `404 Not Found`: user not found
                 """)
             .RequireAuthorization()
             .Produces(StatusCodes.Status204NoContent)

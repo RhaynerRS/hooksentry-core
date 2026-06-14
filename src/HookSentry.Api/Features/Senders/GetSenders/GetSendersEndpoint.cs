@@ -19,25 +19,25 @@ public class GetSendersEndpoint : IEndpoint
         app.MapGet("/api/v1/destinations/{destinationId:guid}/senders", Handle)
             .WithName("GetSenders")
             .WithTags("Senders")
-            .WithSummary("Lista senders de uma URL de destino com paginação")
+            .WithSummary("Lists senders of a destination URL with pagination")
             .WithDescription("""
-                Retorna uma página de senders vinculados à URL de destino informada.
+                Returns a page of senders linked to the specified destination URL.
 
-                **Parâmetros de rota:**
-                - `destinationId` *(obrigatório)*: UUID da URL de destino
+                **Route parameters:**
+                - `destinationId` *(required)*: destination URL UUID
 
-                **Paginação** *(todos opcionais — possuem valores padrão):*
-                - `Qt`: itens por página (padrão: `10`)
-                - `Pg`: número da página, base 1 (padrão: `1`)
-                - `CpOrd`: campo de ordenação, case-insensitive (padrão: `id`)
-                - `TpOrd`: direção — `Asc` ou `Desc` (padrão: `Desc`)
+                **Pagination** *(all optional — have default values):*
+                - `Qt`: items per page (default: `10`)
+                - `Pg`: page number, 1-based (default: `1`)
+                - `CpOrd`: sort field, case-insensitive (default: `id`)
+                - `TpOrd`: direction — `Asc` or `Desc` (default: `Desc`)
 
-                **Códigos de retorno:**
-                - `200 OK`: lista paginada de senders
-                - `400 Bad Request`: campo de ordenação inválido
-                - `401 Unauthorized`: token JWT ausente ou inválido
-                - `403 Forbidden`: URL de destino pertence a outro tenant
-                - `404 Not Found`: URL de destino não encontrada
+                **Return codes:**
+                - `200 OK`: paginated list of senders
+                - `400 Bad Request`: invalid sort field
+                - `401 Unauthorized`: missing or invalid JWT token
+                - `403 Forbidden`: destination URL belongs to another tenant
+                - `404 Not Found`: destination URL not found
                 """)
             .RequireAuthorization()
             .Produces<PaginationResponse<SenderResponse>>()

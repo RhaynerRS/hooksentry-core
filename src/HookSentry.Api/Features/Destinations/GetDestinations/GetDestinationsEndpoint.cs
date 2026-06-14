@@ -18,20 +18,20 @@ public class GetDestinationsEndpoint : IEndpoint
         app.MapGet("/api/v1/destinations", Handle)
             .WithName("GetDestinations")
             .WithTags("Destinations")
-            .WithSummary("Lista URLs de destino do tenant autenticado com paginação")
+            .WithSummary("Lists destination URLs in the authenticated tenant with pagination")
             .WithDescription("""
-                Retorna uma página de URLs de destino pertencentes ao tenant autenticado.
+                Returns a page of destination URLs belonging to the authenticated tenant.
 
-                **Paginação** *(todos opcionais — possuem valores padrão):*
-                - `Qt`: itens por página (padrão: `10`)
-                - `Pg`: número da página, base 1 (padrão: `1`)
-                - `CpOrd`: campo de ordenação, case-insensitive (padrão: `id`)
-                - `TpOrd`: direção — `Asc` ou `Desc` (padrão: `Desc`)
+                **Pagination** *(all optional — have default values):*
+                - `Qt`: items per page (default: `10`)
+                - `Pg`: page number, 1-based (default: `1`)
+                - `CpOrd`: sort field, case-insensitive (default: `id`)
+                - `TpOrd`: direction — `Asc` or `Desc` (default: `Desc`)
 
-                **Códigos de retorno:**
-                - `200 OK`: lista paginada de URLs de destino
-                - `400 Bad Request`: campo de ordenação inválido
-                - `401 Unauthorized`: token ausente ou inválido
+                **Return codes:**
+                - `200 OK`: paginated list of destination URLs
+                - `400 Bad Request`: invalid sort field
+                - `401 Unauthorized`: missing or invalid token
                 """)
             .RequireAuthorization()
             .Produces<PaginationResponse<DestinationResponse>>()

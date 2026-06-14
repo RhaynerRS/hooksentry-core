@@ -16,13 +16,13 @@ internal static class InputSanitizer
     {
         if (url.Length > maxLength)
         {
-            error = $"URL não pode exceder {maxLength} caracteres.";
+            error = $"URL cannot exceed {maxLength} characters.";
             return false;
         }
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
             !uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase))
         {
-            error = "A URL deve ser uma URL HTTPS válida.";
+            error = "URL must be a valid HTTPS URL.";
             return false;
         }
         error = null;
@@ -32,27 +32,27 @@ internal static class InputSanitizer
     public static string? ValidateEmail(string email)
     {
         if (email.Length > MaxEmailLength)
-            return $"'email' não pode exceder {MaxEmailLength} caracteres.";
+            return $"'email' cannot exceed {MaxEmailLength} characters.";
         if (HasControlChars(email))
-            return "'email' não pode conter caracteres de controle (\\r, \\n, \\0).";
+            return "'email' cannot contain control characters (\\r, \\n, \\0).";
         return null;
     }
 
     public static string? ValidateName(string name)
     {
         if (name.Length > MaxNameLength)
-            return $"'name' não pode exceder {MaxNameLength} caracteres.";
+            return $"'name' cannot exceed {MaxNameLength} characters.";
         if (HasControlChars(name))
-            return "'name' não pode conter caracteres de controle (\\r, \\n, \\0).";
+            return "'name' cannot contain control characters (\\r, \\n, \\0).";
         return null;
     }
 
     public static string? ValidateToken(string token)
     {
         if (token.Length > MaxRefreshTokenLength)
-            return $"Token não pode exceder {MaxRefreshTokenLength} caracteres.";
+            return $"Token cannot exceed {MaxRefreshTokenLength} characters.";
         if (HasControlChars(token))
-            return "Token não pode conter caracteres de controle (\\r, \\n, \\0).";
+            return "Token cannot contain control characters (\\r, \\n, \\0).";
         return null;
     }
 }

@@ -8,18 +8,18 @@ public class EventTests
     private static readonly Guid ValidDestinationUrlId = Guid.NewGuid();
     private const string ValidPayload = "{\"order_id\":\"123\",\"amount\":99.90}";
 
-    public class Construtor
+    public class Constructor
     {
         [Fact]
-        public void Deve_Gerar_Id_Nao_Vazio()
+        public void Should_Generate_Non_Empty_Id()
         {
-            var evento = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
+            var evt = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
 
-            Assert.NotEqual(Guid.Empty, evento.Id);
+            Assert.NotEqual(Guid.Empty, evt.Id);
         }
 
         [Fact]
-        public void Dois_Eventos_Devem_Ter_Ids_Diferentes()
+        public void Two_Events_Should_Have_Different_Ids()
         {
             var a = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
             var b = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
@@ -28,97 +28,97 @@ public class EventTests
         }
 
         [Fact]
-        public void Deve_Atribuir_TenantId_Informado()
+        public void Should_Assign_Provided_TenantId()
         {
             var tenantId = Guid.NewGuid();
-            var evento = new Event(tenantId, ValidDestinationUrlId, ValidPayload);
+            var evt = new Event(tenantId, ValidDestinationUrlId, ValidPayload);
 
-            Assert.Equal(tenantId, evento.TenantId);
+            Assert.Equal(tenantId, evt.TenantId);
         }
 
         [Fact]
-        public void Deve_Atribuir_DestinationUrlId_Informado()
+        public void Should_Assign_Provided_DestinationUrlId()
         {
             var destId = Guid.NewGuid();
-            var evento = new Event(ValidTenantId, destId, ValidPayload);
+            var evt = new Event(ValidTenantId, destId, ValidPayload);
 
-            Assert.Equal(destId, evento.DestinationUrlId);
+            Assert.Equal(destId, evt.DestinationUrlId);
         }
 
         [Fact]
-        public void Deve_Atribuir_Payload_Informado()
+        public void Should_Assign_Provided_Payload()
         {
-            var evento = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
+            var evt = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
 
-            Assert.Equal(ValidPayload, evento.Payload);
+            Assert.Equal(ValidPayload, evt.Payload);
         }
 
         [Fact]
-        public void Status_Deve_Ser_Pending_Por_Padrao()
+        public void Status_Should_Default_To_Pending()
         {
-            var evento = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
+            var evt = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
 
-            Assert.Equal(EventStatus.Pending, evento.Status);
+            Assert.Equal(EventStatus.Pending, evt.Status);
         }
 
         [Fact]
-        public void CurrentRetryCount_Deve_Ser_Zero_Por_Padrao()
+        public void CurrentRetryCount_Should_Default_To_Zero()
         {
-            var evento = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
+            var evt = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
 
-            Assert.Equal(0, evento.CurrentRetryCount);
+            Assert.Equal(0, evt.CurrentRetryCount);
         }
 
         [Fact]
-        public void IdempotencyKey_Deve_Ser_Nula_Por_Padrao()
+        public void IdempotencyKey_Should_Default_To_Null()
         {
-            var evento = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
+            var evt = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
 
-            Assert.Null(evento.IdempotencyKey);
+            Assert.Null(evt.IdempotencyKey);
         }
 
         [Fact]
-        public void Deve_Atribuir_IdempotencyKey_Informada()
+        public void Should_Assign_Provided_IdempotencyKey()
         {
-            var evento = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload, "chave-unica-123");
+            var evt = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload, "unique-key-123");
 
-            Assert.Equal("chave-unica-123", evento.IdempotencyKey);
+            Assert.Equal("unique-key-123", evt.IdempotencyKey);
         }
 
         [Fact]
-        public void AcceptedAt_Deve_Ser_Definido_Como_UtcNow()
+        public void AcceptedAt_Should_Be_Set_To_UtcNow()
         {
-            var antes = DateTimeOffset.UtcNow;
-            var evento = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
+            var before = DateTimeOffset.UtcNow;
+            var evt = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
 
-            Assert.True(evento.AcceptedAt >= antes);
+            Assert.True(evt.AcceptedAt >= before);
         }
 
         [Fact]
-        public void NextAttemptAt_Deve_Ser_Nulo_Por_Padrao()
+        public void NextAttemptAt_Should_Default_To_Null()
         {
-            var evento = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
+            var evt = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
 
-            Assert.Null(evento.NextAttemptAt);
+            Assert.Null(evt.NextAttemptAt);
         }
 
         [Fact]
-        public void DeliveredAt_Deve_Ser_Nulo_Por_Padrao()
+        public void DeliveredAt_Should_Default_To_Null()
         {
-            var evento = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
+            var evt = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
 
-            Assert.Null(evento.DeliveredAt);
+            Assert.Null(evt.DeliveredAt);
         }
 
         [Fact]
-        public void Deve_Lancar_Excecao_Quando_TenantId_For_Vazio()
+        public void Should_Throw_When_TenantId_Is_Empty()
         {
             Assert.Throws<ArgumentException>(() =>
                 new Event(Guid.Empty, ValidDestinationUrlId, ValidPayload));
         }
 
         [Fact]
-        public void Deve_Lancar_Excecao_Quando_DestinationUrlId_For_Vazio()
+        public void Should_Throw_When_DestinationUrlId_Is_Empty()
         {
             Assert.Throws<ArgumentException>(() =>
                 new Event(ValidTenantId, Guid.Empty, ValidPayload));
@@ -128,131 +128,131 @@ public class EventTests
         [InlineData(null)]
         [InlineData("")]
         [InlineData("   ")]
-        public void Deve_Lancar_Excecao_Quando_Payload_For_Nulo_Ou_Vazio(string? payload)
+        public void Should_Throw_When_Payload_Is_Null_Or_Empty(string? payload)
         {
             Assert.Throws<ArgumentException>(() =>
                 new Event(ValidTenantId, ValidDestinationUrlId, payload!));
         }
 
         [Theory]
-        [InlineData("nao-e-json")]
-        [InlineData("{chave sem aspas: 1}")]
-        [InlineData("texto simples")]
-        public void Deve_Lancar_Excecao_Quando_Payload_For_Json_Invalido(string payload)
+        [InlineData("not-json")]
+        [InlineData("{key without quotes: 1}")]
+        [InlineData("plain text")]
+        public void Should_Throw_When_Payload_Is_Invalid_Json(string payload)
         {
             Assert.Throws<ArgumentException>(() =>
                 new Event(ValidTenantId, ValidDestinationUrlId, payload));
         }
 
         [Fact]
-        public void Deve_Lancar_Excecao_Quando_IdempotencyKey_Exceder_255_Caracteres()
+        public void Should_Throw_When_IdempotencyKey_Exceeds_255_Characters()
         {
-            var chave = new string('x', 256);
+            var key = new string('x', 256);
 
             Assert.Throws<ArgumentException>(() =>
-                new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload, chave));
+                new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload, key));
         }
 
         [Fact]
-        public void Deve_Aceitar_IdempotencyKey_Com_255_Caracteres()
+        public void Should_Accept_IdempotencyKey_With_255_Characters()
         {
-            var chave = new string('x', 255);
-            var evento = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload, chave);
+            var key = new string('x', 255);
+            var evt = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload, key);
 
-            Assert.Equal(chave, evento.IdempotencyKey);
+            Assert.Equal(key, evt.IdempotencyKey);
         }
 
         [Fact]
-        public void Deve_Aceitar_Payload_Json_Array()
+        public void Should_Accept_Json_Array_Payload()
         {
-            var evento = new Event(ValidTenantId, ValidDestinationUrlId, "[1,2,3]");
+            var evt = new Event(ValidTenantId, ValidDestinationUrlId, "[1,2,3]");
 
-            Assert.Equal("[1,2,3]", evento.Payload);
+            Assert.Equal("[1,2,3]", evt.Payload);
         }
     }
 
-    public class MetodoSetPayload
+    public class SetPayload
     {
         [Fact]
-        public void Deve_Atualizar_Payload()
+        public void Should_Update_Payload()
         {
-            var evento = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
-            const string novoPayload = "{\"novo\":true}";
+            var evt = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
+            const string newPayload = "{\"new\":true}";
 
-            evento.SetPayload(novoPayload);
+            evt.SetPayload(newPayload);
 
-            Assert.Equal(novoPayload, evento.Payload);
+            Assert.Equal(newPayload, evt.Payload);
         }
 
         [Theory]
         [InlineData(null)]
         [InlineData("")]
         [InlineData("   ")]
-        public void Deve_Lancar_Excecao_Quando_Payload_For_Nulo_Ou_Vazio(string? payload)
+        public void Should_Throw_When_Payload_Is_Null_Or_Empty(string? payload)
         {
-            var evento = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
+            var evt = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
 
-            Assert.Throws<ArgumentException>(() => evento.SetPayload(payload!));
+            Assert.Throws<ArgumentException>(() => evt.SetPayload(payload!));
         }
 
         [Theory]
-        [InlineData("nao-e-json")]
-        [InlineData("{chave sem aspas: 1}")]
-        public void Deve_Lancar_Excecao_Quando_Payload_For_Json_Invalido(string payload)
+        [InlineData("not-json")]
+        [InlineData("{key without quotes: 1}")]
+        public void Should_Throw_When_Payload_Is_Invalid_Json(string payload)
         {
-            var evento = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
+            var evt = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
 
-            Assert.Throws<ArgumentException>(() => evento.SetPayload(payload));
+            Assert.Throws<ArgumentException>(() => evt.SetPayload(payload));
         }
 
         [Fact]
-        public void Nao_Deve_Alterar_TenantId()
+        public void Should_Not_Change_TenantId()
         {
-            var evento = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
+            var evt = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
 
-            evento.SetPayload("{\"updated\":true}");
+            evt.SetPayload("{\"updated\":true}");
 
-            Assert.Equal(ValidTenantId, evento.TenantId);
+            Assert.Equal(ValidTenantId, evt.TenantId);
         }
 
         [Fact]
-        public void Nao_Deve_Alterar_AcceptedAt()
+        public void Should_Not_Change_AcceptedAt()
         {
-            var evento = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
-            var acceptedAtOriginal = evento.AcceptedAt;
+            var evt = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
+            var originalAcceptedAt = evt.AcceptedAt;
             Thread.Sleep(20);
 
-            evento.SetPayload("{\"updated\":true}");
+            evt.SetPayload("{\"updated\":true}");
 
-            Assert.Equal(acceptedAtOriginal, evento.AcceptedAt);
+            Assert.Equal(originalAcceptedAt, evt.AcceptedAt);
         }
     }
 
-    public class MetodoMarkSucceeded
+    public class MarkSucceeded
     {
         [Theory]
         [InlineData(EventStatus.Pending)]
         [InlineData(EventStatus.Processing)]
         [InlineData(EventStatus.WaitingRetry)]
-        public void Deve_Definir_Status_Como_Succeeded_A_Partir_De_Estado_Ativo(EventStatus status)
+        public void Should_Set_Status_To_Succeeded_From_Active_State(EventStatus status)
         {
-            var evento = new EventBuilder().ComStatus(status).Build();
+            var evt = new EventBuilder().WithStatus(status).Build();
 
-            evento.MarkSucceeded();
+            evt.MarkSucceeded();
 
-            Assert.Equal(EventStatus.Succeeded, evento.Status);
+            Assert.Equal(EventStatus.Succeeded, evt.Status);
         }
 
         [Fact]
-        public void Deve_Definir_DeliveredAt()
+        public void Should_Set_DeliveredAt()
         {
-            var antes = DateTimeOffset.UtcNow;
-            var evento = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
+            var before = DateTimeOffset.UtcNow;
+            var evt = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
 
-            evento.MarkSucceeded();
+            evt.MarkSucceeded();
 
-            Assert.NotNull(evento.DeliveredAt);
-            Assert.True(evento.DeliveredAt >= antes);
+            Assert.NotNull(evt.DeliveredAt);
+            Assert.True(evt.DeliveredAt >= before);
         }
 
         [Theory]
@@ -261,30 +261,30 @@ public class EventTests
         [InlineData(EventStatus.CriticalFailure)]
         [InlineData(EventStatus.AuthenticationFailed)]
         [InlineData(EventStatus.Cancelled)]
-        public void Deve_Lancar_Excecao_A_Partir_De_Estado_Terminal(EventStatus status)
+        public void Should_Throw_From_Terminal_State(EventStatus status)
         {
-            var evento = new EventBuilder().ComStatus(status).Build();
+            var evt = new EventBuilder().WithStatus(status).Build();
 
-            Assert.Throws<InvalidOperationException>(() => evento.MarkSucceeded());
+            Assert.Throws<InvalidOperationException>(() => evt.MarkSucceeded());
         }
     }
 
-    public class MetodoMarkWaitingRetry
+    public class MarkWaitingRetry
     {
         [Theory]
         [InlineData(EventStatus.Pending)]
         [InlineData(EventStatus.Processing)]
         [InlineData(EventStatus.WaitingRetry)]
-        public void Deve_Definir_Status_Como_WaitingRetry_A_Partir_De_Estado_Ativo(EventStatus status)
+        public void Should_Set_Status_To_WaitingRetry_From_Active_State(EventStatus status)
         {
-            var evento = new EventBuilder().ComStatus(status).Build();
-            var proxima = DateTimeOffset.UtcNow.AddMinutes(5);
+            var evt = new EventBuilder().WithStatus(status).Build();
+            var next = DateTimeOffset.UtcNow.AddMinutes(5);
 
-            evento.MarkWaitingRetry(1, proxima);
+            evt.MarkWaitingRetry(1, next);
 
-            Assert.Equal(EventStatus.WaitingRetry, evento.Status);
-            Assert.Equal(1, evento.CurrentRetryCount);
-            Assert.Equal(proxima, evento.NextAttemptAt);
+            Assert.Equal(EventStatus.WaitingRetry, evt.Status);
+            Assert.Equal(1, evt.CurrentRetryCount);
+            Assert.Equal(next, evt.NextAttemptAt);
         }
 
         [Theory]
@@ -293,28 +293,28 @@ public class EventTests
         [InlineData(EventStatus.CriticalFailure)]
         [InlineData(EventStatus.AuthenticationFailed)]
         [InlineData(EventStatus.Cancelled)]
-        public void Deve_Lancar_Excecao_A_Partir_De_Estado_Terminal(EventStatus status)
+        public void Should_Throw_From_Terminal_State(EventStatus status)
         {
-            var evento = new EventBuilder().ComStatus(status).Build();
+            var evt = new EventBuilder().WithStatus(status).Build();
 
             Assert.Throws<InvalidOperationException>(
-                () => evento.MarkWaitingRetry(1, DateTimeOffset.UtcNow.AddMinutes(5)));
+                () => evt.MarkWaitingRetry(1, DateTimeOffset.UtcNow.AddMinutes(5)));
         }
     }
 
-    public class MetodoMarkCriticalFailure
+    public class MarkCriticalFailure
     {
         [Theory]
         [InlineData(EventStatus.Pending)]
         [InlineData(EventStatus.Processing)]
         [InlineData(EventStatus.WaitingRetry)]
-        public void Deve_Definir_Status_Como_CriticalFailure_A_Partir_De_Estado_Ativo(EventStatus status)
+        public void Should_Set_Status_To_CriticalFailure_From_Active_State(EventStatus status)
         {
-            var evento = new EventBuilder().ComStatus(status).Build();
+            var evt = new EventBuilder().WithStatus(status).Build();
 
-            evento.MarkCriticalFailure();
+            evt.MarkCriticalFailure();
 
-            Assert.Equal(EventStatus.CriticalFailure, evento.Status);
+            Assert.Equal(EventStatus.CriticalFailure, evt.Status);
         }
 
         [Theory]
@@ -323,27 +323,27 @@ public class EventTests
         [InlineData(EventStatus.CriticalFailure)]
         [InlineData(EventStatus.AuthenticationFailed)]
         [InlineData(EventStatus.Cancelled)]
-        public void Deve_Lancar_Excecao_A_Partir_De_Estado_Terminal(EventStatus status)
+        public void Should_Throw_From_Terminal_State(EventStatus status)
         {
-            var evento = new EventBuilder().ComStatus(status).Build();
+            var evt = new EventBuilder().WithStatus(status).Build();
 
-            Assert.Throws<InvalidOperationException>(() => evento.MarkCriticalFailure());
+            Assert.Throws<InvalidOperationException>(() => evt.MarkCriticalFailure());
         }
     }
 
-    public class MetodoMarkAuthenticationFailed
+    public class MarkAuthenticationFailed
     {
         [Theory]
         [InlineData(EventStatus.Pending)]
         [InlineData(EventStatus.Processing)]
         [InlineData(EventStatus.WaitingRetry)]
-        public void Deve_Definir_Status_Como_AuthenticationFailed_A_Partir_De_Estado_Ativo(EventStatus status)
+        public void Should_Set_Status_To_AuthenticationFailed_From_Active_State(EventStatus status)
         {
-            var evento = new EventBuilder().ComStatus(status).Build();
+            var evt = new EventBuilder().WithStatus(status).Build();
 
-            evento.MarkAuthenticationFailed();
+            evt.MarkAuthenticationFailed();
 
-            Assert.Equal(EventStatus.AuthenticationFailed, evento.Status);
+            Assert.Equal(EventStatus.AuthenticationFailed, evt.Status);
         }
 
         [Theory]
@@ -352,79 +352,79 @@ public class EventTests
         [InlineData(EventStatus.CriticalFailure)]
         [InlineData(EventStatus.AuthenticationFailed)]
         [InlineData(EventStatus.Cancelled)]
-        public void Deve_Lancar_Excecao_A_Partir_De_Estado_Terminal(EventStatus status)
+        public void Should_Throw_From_Terminal_State(EventStatus status)
         {
-            var evento = new EventBuilder().ComStatus(status).Build();
+            var evt = new EventBuilder().WithStatus(status).Build();
 
-            Assert.Throws<InvalidOperationException>(() => evento.MarkAuthenticationFailed());
+            Assert.Throws<InvalidOperationException>(() => evt.MarkAuthenticationFailed());
         }
     }
 
-    public class MetodoResetForReplay
+    public class ResetForReplay
     {
         [Fact]
-        public void Deve_Resetar_CurrentRetryCount_Para_Zero()
+        public void Should_Reset_CurrentRetryCount_To_Zero()
         {
-            var evento = new EventBuilder().ComStatus(EventStatus.CriticalFailure).Build();
+            var evt = new EventBuilder().WithStatus(EventStatus.CriticalFailure).Build();
 
-            evento.ResetForReplay();
+            evt.ResetForReplay();
 
-            Assert.Equal(0, evento.CurrentRetryCount);
+            Assert.Equal(0, evt.CurrentRetryCount);
         }
 
         [Fact]
-        public void Deve_Definir_Status_Como_Pending()
+        public void Should_Set_Status_To_Pending()
         {
-            var evento = new EventBuilder().ComStatus(EventStatus.CriticalFailure).Build();
+            var evt = new EventBuilder().WithStatus(EventStatus.CriticalFailure).Build();
 
-            evento.ResetForReplay();
+            evt.ResetForReplay();
 
-            Assert.Equal(EventStatus.Pending, evento.Status);
+            Assert.Equal(EventStatus.Pending, evt.Status);
         }
 
         [Fact]
-        public void Deve_Definir_NextAttemptAt_Como_Agora_Ou_Posterior()
+        public void Should_Set_NextAttemptAt_To_Now_Or_Later()
         {
-            var evento = new EventBuilder().ComStatus(EventStatus.CriticalFailure).Build();
-            var antes = DateTimeOffset.UtcNow;
+            var evt = new EventBuilder().WithStatus(EventStatus.CriticalFailure).Build();
+            var before = DateTimeOffset.UtcNow;
 
-            evento.ResetForReplay();
+            evt.ResetForReplay();
 
-            Assert.NotNull(evento.NextAttemptAt);
-            Assert.True(evento.NextAttemptAt >= antes);
+            Assert.NotNull(evt.NextAttemptAt);
+            Assert.True(evt.NextAttemptAt >= before);
         }
 
         [Fact]
-        public void Nao_Deve_Alterar_AcceptedAt()
+        public void Should_Not_Change_AcceptedAt()
         {
-            var evento = new EventBuilder().ComStatus(EventStatus.CriticalFailure).Build();
-            var acceptedAtOriginal = evento.AcceptedAt;
+            var evt = new EventBuilder().WithStatus(EventStatus.CriticalFailure).Build();
+            var originalAcceptedAt = evt.AcceptedAt;
             Thread.Sleep(20);
 
-            evento.ResetForReplay();
+            evt.ResetForReplay();
 
-            Assert.Equal(acceptedAtOriginal, evento.AcceptedAt);
+            Assert.Equal(originalAcceptedAt, evt.AcceptedAt);
         }
 
         [Fact]
-        public void Nao_Deve_Alterar_Id()
+        public void Should_Not_Change_Id()
         {
-            var evento = new EventBuilder().ComStatus(EventStatus.CriticalFailure).Build();
-            var idOriginal = evento.Id;
+            var evt = new EventBuilder().WithStatus(EventStatus.CriticalFailure).Build();
+            var originalId = evt.Id;
 
-            evento.ResetForReplay();
+            evt.ResetForReplay();
 
-            Assert.Equal(idOriginal, evento.Id);
+            Assert.Equal(originalId, evt.Id);
         }
 
         [Fact]
-        public void Nao_Deve_Alterar_TenantId()
+        public void Should_Not_Change_TenantId()
         {
-            var evento = new EventBuilder().ComStatus(EventStatus.CriticalFailure).Build();
+            var evt = new EventBuilder().WithStatus(EventStatus.CriticalFailure).Build();
 
-            evento.ResetForReplay();
+            evt.ResetForReplay();
 
-            Assert.Equal(ValidTenantId, evento.TenantId);
+            Assert.Equal(ValidTenantId, evt.TenantId);
         }
 
         [Theory]
@@ -434,34 +434,34 @@ public class EventTests
         [InlineData(EventStatus.Failed)]
         [InlineData(EventStatus.WaitingRetry)]
         [InlineData(EventStatus.Cancelled)]
-        public void Deve_Lancar_Excecao_Quando_Status_Nao_For_CriticalFailure(EventStatus status)
+        public void Should_Throw_When_Status_Is_Not_CriticalFailure(EventStatus status)
         {
-            var evento = new EventBuilder().ComStatus(status).Build();
+            var evt = new EventBuilder().WithStatus(status).Build();
 
-            Assert.Throws<InvalidOperationException>(() => evento.ResetForReplay());
+            Assert.Throws<InvalidOperationException>(() => evt.ResetForReplay());
         }
     }
 
-    public class MetodoCancel
+    public class Cancel
     {
         [Fact]
-        public void Deve_Definir_Status_Como_Cancelled_Quando_Pending()
+        public void Should_Set_Status_To_Cancelled_When_Pending()
         {
-            var evento = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
+            var evt = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
 
-            evento.Cancel();
+            evt.Cancel();
 
-            Assert.Equal(EventStatus.Cancelled, evento.Status);
+            Assert.Equal(EventStatus.Cancelled, evt.Status);
         }
 
         [Fact]
-        public void Deve_Definir_Status_Como_Cancelled_Quando_WaitingRetry()
+        public void Should_Set_Status_To_Cancelled_When_WaitingRetry()
         {
-            var evento = new EventBuilder().ComStatus(EventStatus.WaitingRetry).Build();
+            var evt = new EventBuilder().WithStatus(EventStatus.WaitingRetry).Build();
 
-            evento.Cancel();
+            evt.Cancel();
 
-            Assert.Equal(EventStatus.Cancelled, evento.Status);
+            Assert.Equal(EventStatus.Cancelled, evt.Status);
         }
 
         [Theory]
@@ -470,32 +470,32 @@ public class EventTests
         [InlineData(EventStatus.Failed)]
         [InlineData(EventStatus.CriticalFailure)]
         [InlineData(EventStatus.Cancelled)]
-        public void Deve_Lancar_Excecao_Quando_Status_For_Diferente_De_Pending_Ou_WaitingRetry(EventStatus status)
+        public void Should_Throw_When_Status_Is_Not_Pending_Or_WaitingRetry(EventStatus status)
         {
-            var evento = new EventBuilder().ComStatus(status).Build();
+            var evt = new EventBuilder().WithStatus(status).Build();
 
-            Assert.Throws<InvalidOperationException>(() => evento.Cancel());
+            Assert.Throws<InvalidOperationException>(() => evt.Cancel());
         }
 
         [Fact]
-        public void Nao_Deve_Alterar_AcceptedAt()
+        public void Should_Not_Change_AcceptedAt()
         {
-            var evento = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
-            var acceptedAtOriginal = evento.AcceptedAt;
+            var evt = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
+            var originalAcceptedAt = evt.AcceptedAt;
             Thread.Sleep(20);
 
-            evento.Cancel();
+            evt.Cancel();
 
-            Assert.Equal(acceptedAtOriginal, evento.AcceptedAt);
+            Assert.Equal(originalAcceptedAt, evt.AcceptedAt);
         }
     }
 
-    // Builder auxiliar para criar Event com status específico via reflexão
+    // Auxiliary builder to create an Event with a specific status via reflection
     private class EventBuilder
     {
         private EventStatus _status = EventStatus.Pending;
 
-        public EventBuilder ComStatus(EventStatus status)
+        public EventBuilder WithStatus(EventStatus status)
         {
             _status = status;
             return this;
@@ -503,12 +503,12 @@ public class EventTests
 
         public Event Build()
         {
-            var evento = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
+            var evt = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
             var prop = typeof(Event).GetProperty(
                 nameof(Event.Status),
                 System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance);
-            prop!.GetSetMethod(nonPublic: true)!.Invoke(evento, [_status]);
-            return evento;
+            prop!.GetSetMethod(nonPublic: true)!.Invoke(evt, [_status]);
+            return evt;
         }
     }
 }

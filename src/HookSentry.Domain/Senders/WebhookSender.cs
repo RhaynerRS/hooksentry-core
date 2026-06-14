@@ -29,7 +29,7 @@ public class WebhookSender
     public virtual void SetDestinationId(Guid destinationId)
     {
         if (destinationId == Guid.Empty)
-            throw new ArgumentException("DestinationId não pode ser vazio.", nameof(destinationId));
+            throw new ArgumentException("DestinationId cannot be empty.", nameof(destinationId));
         DestinationId = destinationId;
         UpdatedAt = DateTimeOffset.UtcNow;
     }
@@ -37,7 +37,7 @@ public class WebhookSender
     public virtual void SetTenantId(Guid tenantId)
     {
         if (tenantId == Guid.Empty)
-            throw new ArgumentException("TenantId não pode ser vazio.", nameof(tenantId));
+            throw new ArgumentException("TenantId cannot be empty.", nameof(tenantId));
         TenantId = tenantId;
         UpdatedAt = DateTimeOffset.UtcNow;
     }
@@ -45,7 +45,7 @@ public class WebhookSender
     public virtual void SetLabel(string? label)
     {
         if (label is not null && label.Length > 255)
-            throw new ArgumentException("Label não pode exceder 255 caracteres.", nameof(label));
+            throw new ArgumentException("Label cannot exceed 255 characters.", nameof(label));
         Label = label;
         UpdatedAt = DateTimeOffset.UtcNow;
     }
@@ -66,11 +66,11 @@ public class WebhookSender
             {
                 using var doc = JsonDocument.Parse(mappingJson);
                 if (doc.RootElement.ValueKind != JsonValueKind.Object)
-                    throw new ArgumentException("Mapping deve ser um objeto JSON válido.", nameof(mappingJson));
+                    throw new ArgumentException("Mapping must be a valid JSON object.", nameof(mappingJson));
             }
             catch (JsonException)
             {
-                throw new ArgumentException("Mapping deve ser um JSON válido.", nameof(mappingJson));
+                throw new ArgumentException("Mapping must be valid JSON.", nameof(mappingJson));
             }
         }
 

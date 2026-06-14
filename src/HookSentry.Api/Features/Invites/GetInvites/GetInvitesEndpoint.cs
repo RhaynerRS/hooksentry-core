@@ -18,27 +18,27 @@ public class GetInvitesEndpoint : IEndpoint
         app.MapGet("/api/v1/invites", Handle)
             .WithName("GetInvites")
             .WithTags("Invites")
-            .WithSummary("Lista convites do tenant autenticado com paginação")
+            .WithSummary("Lists invites in the authenticated tenant with pagination")
             .WithDescription("""
-                Retorna uma página de convites pertencentes ao tenant autenticado.
-                Apenas administradores podem listar convites.
+                Returns a page of invites belonging to the authenticated tenant.
+                Only administrators can list invites.
 
-                **Requer autenticação com role Admin.**
+                **Requires authentication with Admin role.**
 
-                **Paginação** *(todos opcionais — possuem valores padrão):*
-                - `Qt`: itens por página (padrão: `10`)
-                - `Pg`: número da página, base 1 (padrão: `1`)
-                - `CpOrd`: campo de ordenação, case-insensitive (padrão: `id`)
-                - `TpOrd`: direção — `Asc` ou `Desc` (padrão: `Desc`)
+                **Pagination** *(all optional — have default values):*
+                - `Qt`: items per page (default: `10`)
+                - `Pg`: page number, 1-based (default: `1`)
+                - `CpOrd`: sort field, case-insensitive (default: `id`)
+                - `TpOrd`: direction — `Asc` or `Desc` (default: `Desc`)
 
-                **Filtros** *(todos opcionais):*
+                **Filters** *(all optional):*
                 - `Status`: `0` = Pending, `1` = Used
 
-                **Códigos de retorno:**
-                - `200 OK`: lista paginada de convites
-                - `400 Bad Request`: campo de ordenação inválido
-                - `401 Unauthorized`: token ausente ou inválido
-                - `403 Forbidden`: usuário não tem role Admin
+                **Return codes:**
+                - `200 OK`: paginated list of invites
+                - `400 Bad Request`: invalid sort field
+                - `401 Unauthorized`: missing or invalid token
+                - `403 Forbidden`: user does not have Admin role
                 """)
             .RequireAuthorization()
             .Produces<PaginationResponse<InviteTokenResponse>>()

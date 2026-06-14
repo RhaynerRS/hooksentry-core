@@ -13,14 +13,14 @@ public class GetEventEndpoint : IEndpoint
         app.MapGet("/api/v1/events/{id:guid}", Handle)
             .WithName("GetEvent")
             .WithTags("Events")
-            .WithSummary("Retorna os detalhes de um evento pelo ID")
+            .WithSummary("Returns event details by ID")
             .WithDescription("""
-                Busca um evento pelo seu ID único de rastreamento.
+                Looks up an event by its unique tracking ID.
 
-                **Parâmetros de rota:**
-                - `id` *(obrigatório)*: UUID do evento
+                **Route parameters:**
+                - `id` *(required)*: event UUID
 
-                Retorna `403 Forbidden` se o evento pertencer a outro tenant (RNF-007).
+                Returns `403 Forbidden` if the event belongs to another tenant (RNF-007).
                 """)
             .RequireAuthorization()
             .Produces<EventResponse>()
@@ -37,14 +37,14 @@ public class GetEventEndpoint : IEndpoint
     {
         if (user.RequireTenantId(out var tenantId) is { } err) return err;
 
-        var evento = await eventRepository.FindAsync(id, ct);
+        var evt = await eventRepository.FindAsync(id, ct);
 
-        if (evento is null)
+        if (evt is null)
             return Results.NotFound();
 
-        if (evento.TenantId != tenantId)
+        if (evt.TenantId != tenantId)
             return Results.Forbid();
 
-        return Results.Ok(EventResponse.From(evento));
+        return Results.Ok(EventResponse.From(evt));
     }
 }

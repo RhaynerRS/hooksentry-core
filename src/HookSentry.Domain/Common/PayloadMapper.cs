@@ -7,7 +7,7 @@ public static class PayloadMapper
     public static string Apply(string mappingJson, string payloadJson)
     {
         var mapping = JsonSerializer.Deserialize<Dictionary<string, JsonElement>>(mappingJson)
-            ?? throw new ArgumentException("Mapping JSON inválido.", nameof(mappingJson));
+            ?? throw new ArgumentException("Invalid mapping JSON.", nameof(mappingJson));
 
         var source = JsonSerializer.Deserialize<JsonElement>(payloadJson);
 

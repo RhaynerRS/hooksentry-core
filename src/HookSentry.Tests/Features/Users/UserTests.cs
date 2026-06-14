@@ -5,13 +5,13 @@ namespace HookSentry.Tests.Features.Users;
 public class UserTests
 {
     private static readonly Guid ValidTenantId = Guid.NewGuid();
-    private const string ValidEmail = "joao@exemplo.com";
+    private const string ValidEmail = "john@example.com";
     private const string ValidHash = "salt123:hash456";
 
-    public class Construtor
+    public class Constructor
     {
         [Fact]
-        public void Deve_Gerar_Id_Nao_Vazio()
+        public void Should_Generate_Non_Empty_Id()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
 
@@ -19,16 +19,16 @@ public class UserTests
         }
 
         [Fact]
-        public void Dois_Users_Devem_Ter_Ids_Diferentes()
+        public void Two_Users_Should_Have_Different_Ids()
         {
-            var a = new User(ValidTenantId, "a@exemplo.com", ValidHash);
-            var b = new User(ValidTenantId, "b@exemplo.com", ValidHash);
+            var a = new User(ValidTenantId, "a@example.com", ValidHash);
+            var b = new User(ValidTenantId, "b@example.com", ValidHash);
 
             Assert.NotEqual(a.Id, b.Id);
         }
 
         [Fact]
-        public void Deve_Atribuir_TenantId_Informado()
+        public void Should_Assign_Provided_TenantId()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
 
@@ -36,15 +36,15 @@ public class UserTests
         }
 
         [Fact]
-        public void Deve_Normalizar_Email_Para_Lowercase_Na_Criacao()
+        public void Should_Normalize_Email_To_Lowercase_On_Creation()
         {
-            var user = new User(ValidTenantId, "Joao@EXEMPLO.COM", ValidHash);
+            var user = new User(ValidTenantId, "John@EXAMPLE.COM", ValidHash);
 
-            Assert.Equal("joao@exemplo.com", user.Email);
+            Assert.Equal("john@example.com", user.Email);
         }
 
         [Fact]
-        public void Deve_Atribuir_PasswordHash_Informado()
+        public void Should_Assign_Provided_PasswordHash()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
 
@@ -52,7 +52,7 @@ public class UserTests
         }
 
         [Fact]
-        public void Role_Deve_Ser_Developer_Por_Padrao()
+        public void Role_Should_Default_To_Developer()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
 
@@ -60,7 +60,7 @@ public class UserTests
         }
 
         [Fact]
-        public void Deve_Aceitar_Role_Admin()
+        public void Should_Accept_Admin_Role()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash, UserRole.Admin);
 
@@ -68,7 +68,7 @@ public class UserTests
         }
 
         [Fact]
-        public void Status_Deve_Ser_Active_Na_Criacao()
+        public void Status_Should_Be_Active_On_Creation()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
 
@@ -76,25 +76,25 @@ public class UserTests
         }
 
         [Fact]
-        public void CreatedAt_Deve_Ser_Definido_Como_UtcNow()
+        public void CreatedAt_Should_Be_Set_To_UtcNow()
         {
-            var antes = DateTimeOffset.UtcNow;
+            var before = DateTimeOffset.UtcNow;
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
 
-            Assert.True(user.CreatedAt >= antes);
+            Assert.True(user.CreatedAt >= before);
         }
 
         [Fact]
-        public void UpdatedAt_Deve_Ser_Definido_Como_UtcNow()
+        public void UpdatedAt_Should_Be_Set_To_UtcNow()
         {
-            var antes = DateTimeOffset.UtcNow;
+            var before = DateTimeOffset.UtcNow;
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
 
-            Assert.True(user.UpdatedAt >= antes);
+            Assert.True(user.UpdatedAt >= before);
         }
 
         [Fact]
-        public void CreatedAt_E_UpdatedAt_Devem_Ser_Iguais_Na_Criacao()
+        public void CreatedAt_And_UpdatedAt_Should_Be_Equal_On_Creation()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
 
@@ -102,7 +102,7 @@ public class UserTests
         }
 
         [Fact]
-        public void Deve_Lancar_Excecao_Quando_TenantId_For_Vazio()
+        public void Should_Throw_When_TenantId_Is_Empty()
         {
             var ex = Assert.Throws<ArgumentException>(
                 () => new User(Guid.Empty, ValidEmail, ValidHash));
@@ -111,7 +111,7 @@ public class UserTests
         }
 
         [Fact]
-        public void Deve_Lancar_Excecao_Quando_Email_For_Nulo()
+        public void Should_Throw_When_Email_Is_Null()
         {
             var ex = Assert.Throws<ArgumentException>(
                 () => new User(ValidTenantId, null!, ValidHash));
@@ -120,7 +120,7 @@ public class UserTests
         }
 
         [Fact]
-        public void Deve_Lancar_Excecao_Quando_Email_For_Vazio()
+        public void Should_Throw_When_Email_Is_Empty()
         {
             var ex = Assert.Throws<ArgumentException>(
                 () => new User(ValidTenantId, "", ValidHash));
@@ -129,7 +129,7 @@ public class UserTests
         }
 
         [Fact]
-        public void Deve_Lancar_Excecao_Quando_Email_For_Apenas_Espacos()
+        public void Should_Throw_When_Email_Is_Whitespace_Only()
         {
             var ex = Assert.Throws<ArgumentException>(
                 () => new User(ValidTenantId, "   ", ValidHash));
@@ -138,27 +138,27 @@ public class UserTests
         }
 
         [Fact]
-        public void Deve_Lancar_Excecao_Quando_Email_Nao_Contiver_Arroba()
+        public void Should_Throw_When_Email_Does_Not_Contain_At_Sign()
         {
             var ex = Assert.Throws<ArgumentException>(
-                () => new User(ValidTenantId, "emailsemarroba.com", ValidHash));
+                () => new User(ValidTenantId, "emailwithoutatsign.com", ValidHash));
 
             Assert.Contains("Email", ex.Message);
         }
 
         [Fact]
-        public void Deve_Lancar_Excecao_Quando_Email_Ultrapassar_255_Chars()
+        public void Should_Throw_When_Email_Exceeds_255_Chars()
         {
-            var emailLongo = new string('a', 250) + "@x.com";
+            var longEmail = new string('a', 250) + "@x.com";
 
             var ex = Assert.Throws<ArgumentException>(
-                () => new User(ValidTenantId, emailLongo, ValidHash));
+                () => new User(ValidTenantId, longEmail, ValidHash));
 
             Assert.Contains("255", ex.Message);
         }
 
         [Fact]
-        public void Deve_Lancar_Excecao_Quando_PasswordHash_For_Nulo()
+        public void Should_Throw_When_PasswordHash_Is_Null()
         {
             var ex = Assert.Throws<ArgumentException>(
                 () => new User(ValidTenantId, ValidEmail, null!));
@@ -167,7 +167,7 @@ public class UserTests
         }
 
         [Fact]
-        public void Deve_Lancar_Excecao_Quando_PasswordHash_For_Vazio()
+        public void Should_Throw_When_PasswordHash_Is_Empty()
         {
             var ex = Assert.Throws<ArgumentException>(
                 () => new User(ValidTenantId, ValidEmail, ""));
@@ -176,64 +176,64 @@ public class UserTests
         }
     }
 
-    public class MetodoSetEmail
+    public class SetEmail
     {
         [Fact]
-        public void Deve_Atualizar_Email()
+        public void Should_Update_Email()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
 
-            user.SetEmail("novo@exemplo.com");
+            user.SetEmail("new@example.com");
 
-            Assert.Equal("novo@exemplo.com", user.Email);
+            Assert.Equal("new@example.com", user.Email);
         }
 
         [Fact]
-        public void Deve_Normalizar_Email_Para_Lowercase()
+        public void Should_Normalize_Email_To_Lowercase()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
 
-            user.SetEmail("NOVO@EXEMPLO.COM");
+            user.SetEmail("NEW@EXAMPLE.COM");
 
-            Assert.Equal("novo@exemplo.com", user.Email);
+            Assert.Equal("new@example.com", user.Email);
         }
 
         [Fact]
-        public void Deve_Remover_Espacos_Do_Email()
+        public void Should_Trim_Email_Whitespace()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
 
-            user.SetEmail("  novo@exemplo.com  ");
+            user.SetEmail("  new@example.com  ");
 
-            Assert.Equal("novo@exemplo.com", user.Email);
+            Assert.Equal("new@example.com", user.Email);
         }
 
         [Fact]
-        public void Deve_Atualizar_UpdatedAt()
+        public void Should_Update_UpdatedAt()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
             Thread.Sleep(20);
-            var antes = DateTimeOffset.UtcNow;
+            var before = DateTimeOffset.UtcNow;
 
-            user.SetEmail("novo@exemplo.com");
+            user.SetEmail("new@example.com");
 
-            Assert.True(user.UpdatedAt >= antes);
+            Assert.True(user.UpdatedAt >= before);
         }
 
         [Fact]
-        public void Nao_Deve_Alterar_CreatedAt()
+        public void Should_Not_Change_CreatedAt()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
-            var createdAtOriginal = user.CreatedAt;
+            var originalCreatedAt = user.CreatedAt;
             Thread.Sleep(20);
 
-            user.SetEmail("novo@exemplo.com");
+            user.SetEmail("new@example.com");
 
-            Assert.Equal(createdAtOriginal, user.CreatedAt);
+            Assert.Equal(originalCreatedAt, user.CreatedAt);
         }
 
         [Fact]
-        public void Deve_Lancar_Excecao_Quando_Email_For_Nulo()
+        public void Should_Throw_When_Email_Is_Null()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
 
@@ -241,7 +241,7 @@ public class UserTests
         }
 
         [Fact]
-        public void Deve_Lancar_Excecao_Quando_Email_For_Vazio()
+        public void Should_Throw_When_Email_Is_Empty()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
 
@@ -249,61 +249,61 @@ public class UserTests
         }
 
         [Fact]
-        public void Deve_Lancar_Excecao_Quando_Email_Nao_Contiver_Arroba()
+        public void Should_Throw_When_Email_Does_Not_Contain_At_Sign()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
 
-            Assert.Throws<ArgumentException>(() => user.SetEmail("invalido.com"));
+            Assert.Throws<ArgumentException>(() => user.SetEmail("invalid.com"));
         }
 
         [Fact]
-        public void Deve_Lancar_Excecao_Quando_Email_Ultrapassar_255_Chars()
+        public void Should_Throw_When_Email_Exceeds_255_Chars()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
-            var emailLongo = new string('a', 250) + "@x.com";
+            var longEmail = new string('a', 250) + "@x.com";
 
-            Assert.Throws<ArgumentException>(() => user.SetEmail(emailLongo));
+            Assert.Throws<ArgumentException>(() => user.SetEmail(longEmail));
         }
     }
 
-    public class MetodoSetPasswordHash
+    public class SetPasswordHash
     {
         [Fact]
-        public void Deve_Atualizar_PasswordHash()
+        public void Should_Update_PasswordHash()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
 
-            user.SetPasswordHash("novoSalt:novoHash");
+            user.SetPasswordHash("newSalt:newHash");
 
-            Assert.Equal("novoSalt:novoHash", user.PasswordHash);
+            Assert.Equal("newSalt:newHash", user.PasswordHash);
         }
 
         [Fact]
-        public void Deve_Atualizar_UpdatedAt()
+        public void Should_Update_UpdatedAt()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
             Thread.Sleep(20);
-            var antes = DateTimeOffset.UtcNow;
+            var before = DateTimeOffset.UtcNow;
 
-            user.SetPasswordHash("novoSalt:novoHash");
+            user.SetPasswordHash("newSalt:newHash");
 
-            Assert.True(user.UpdatedAt >= antes);
+            Assert.True(user.UpdatedAt >= before);
         }
 
         [Fact]
-        public void Nao_Deve_Alterar_CreatedAt()
+        public void Should_Not_Change_CreatedAt()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
-            var createdAtOriginal = user.CreatedAt;
+            var originalCreatedAt = user.CreatedAt;
             Thread.Sleep(20);
 
-            user.SetPasswordHash("novoSalt:novoHash");
+            user.SetPasswordHash("newSalt:newHash");
 
-            Assert.Equal(createdAtOriginal, user.CreatedAt);
+            Assert.Equal(originalCreatedAt, user.CreatedAt);
         }
 
         [Fact]
-        public void Deve_Lancar_Excecao_Quando_PasswordHash_For_Nulo()
+        public void Should_Throw_When_PasswordHash_Is_Null()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
 
@@ -311,7 +311,7 @@ public class UserTests
         }
 
         [Fact]
-        public void Deve_Lancar_Excecao_Quando_PasswordHash_For_Vazio()
+        public void Should_Throw_When_PasswordHash_Is_Empty()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
 
@@ -319,7 +319,7 @@ public class UserTests
         }
 
         [Fact]
-        public void Deve_Lancar_Excecao_Quando_PasswordHash_For_Apenas_Espacos()
+        public void Should_Throw_When_PasswordHash_Is_Whitespace_Only()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
 
@@ -327,10 +327,10 @@ public class UserTests
         }
     }
 
-    public class MetodoSetRole
+    public class SetRole
     {
         [Fact]
-        public void Deve_Atualizar_Role_Para_Admin()
+        public void Should_Update_Role_To_Admin()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
 
@@ -340,7 +340,7 @@ public class UserTests
         }
 
         [Fact]
-        public void Deve_Manter_Role_Developer()
+        public void Should_Keep_Developer_Role()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash, UserRole.Admin);
 
@@ -350,43 +350,43 @@ public class UserTests
         }
 
         [Fact]
-        public void Deve_Atualizar_UpdatedAt()
+        public void Should_Update_UpdatedAt()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
             Thread.Sleep(20);
-            var antes = DateTimeOffset.UtcNow;
+            var before = DateTimeOffset.UtcNow;
 
             user.SetRole(UserRole.Admin);
 
-            Assert.True(user.UpdatedAt >= antes);
+            Assert.True(user.UpdatedAt >= before);
         }
 
         [Fact]
-        public void Nao_Deve_Alterar_CreatedAt()
+        public void Should_Not_Change_CreatedAt()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
-            var createdAtOriginal = user.CreatedAt;
+            var originalCreatedAt = user.CreatedAt;
             Thread.Sleep(20);
 
             user.SetRole(UserRole.Admin);
 
-            Assert.Equal(createdAtOriginal, user.CreatedAt);
+            Assert.Equal(originalCreatedAt, user.CreatedAt);
         }
 
         [Fact]
-        public void Deve_Lancar_Excecao_Quando_Role_For_Invalido()
+        public void Should_Throw_When_Role_Is_Invalid()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
-            var roleInvalido = (UserRole)99;
+            var invalidRole = (UserRole)99;
 
-            Assert.Throws<ArgumentOutOfRangeException>(() => user.SetRole(roleInvalido));
+            Assert.Throws<ArgumentOutOfRangeException>(() => user.SetRole(invalidRole));
         }
     }
 
-    public class MetodoActivate
+    public class Activate
     {
         [Fact]
-        public void Deve_Definir_Status_Como_Active()
+        public void Should_Set_Status_To_Active()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
             user.Deactivate();
@@ -397,7 +397,7 @@ public class UserTests
         }
 
         [Fact]
-        public void Deve_Ser_Idempotente_Se_Ja_Estiver_Active()
+        public void Should_Be_Idempotent_When_Already_Active()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
 
@@ -407,36 +407,36 @@ public class UserTests
         }
 
         [Fact]
-        public void Deve_Atualizar_UpdatedAt()
+        public void Should_Update_UpdatedAt()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
             user.Deactivate();
             Thread.Sleep(20);
-            var antes = DateTimeOffset.UtcNow;
+            var before = DateTimeOffset.UtcNow;
 
             user.Activate();
 
-            Assert.True(user.UpdatedAt >= antes);
+            Assert.True(user.UpdatedAt >= before);
         }
 
         [Fact]
-        public void Nao_Deve_Alterar_CreatedAt()
+        public void Should_Not_Change_CreatedAt()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
-            var createdAtOriginal = user.CreatedAt;
+            var originalCreatedAt = user.CreatedAt;
             user.Deactivate();
             Thread.Sleep(20);
 
             user.Activate();
 
-            Assert.Equal(createdAtOriginal, user.CreatedAt);
+            Assert.Equal(originalCreatedAt, user.CreatedAt);
         }
     }
 
-    public class MetodoDeactivate
+    public class Deactivate
     {
         [Fact]
-        public void Deve_Definir_Status_Como_Inactive()
+        public void Should_Set_Status_To_Inactive()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
 
@@ -446,7 +446,7 @@ public class UserTests
         }
 
         [Fact]
-        public void Deve_Ser_Idempotente_Se_Ja_Estiver_Inactive()
+        public void Should_Be_Idempotent_When_Already_Inactive()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
             user.Deactivate();
@@ -457,27 +457,27 @@ public class UserTests
         }
 
         [Fact]
-        public void Deve_Atualizar_UpdatedAt()
+        public void Should_Update_UpdatedAt()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
             Thread.Sleep(20);
-            var antes = DateTimeOffset.UtcNow;
+            var before = DateTimeOffset.UtcNow;
 
             user.Deactivate();
 
-            Assert.True(user.UpdatedAt >= antes);
+            Assert.True(user.UpdatedAt >= before);
         }
 
         [Fact]
-        public void Nao_Deve_Alterar_CreatedAt()
+        public void Should_Not_Change_CreatedAt()
         {
             var user = new User(ValidTenantId, ValidEmail, ValidHash);
-            var createdAtOriginal = user.CreatedAt;
+            var originalCreatedAt = user.CreatedAt;
             Thread.Sleep(20);
 
             user.Deactivate();
 
-            Assert.Equal(createdAtOriginal, user.CreatedAt);
+            Assert.Equal(originalCreatedAt, user.CreatedAt);
         }
     }
 }

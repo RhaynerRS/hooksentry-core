@@ -31,26 +31,26 @@ public class Event
     private void SetTenantId(Guid tenantId)
     {
         if (tenantId == Guid.Empty)
-            throw new ArgumentException("TenantId não pode ser vazio.", nameof(tenantId));
+            throw new ArgumentException("TenantId cannot be empty.", nameof(tenantId));
         TenantId = tenantId;
     }
 
     private void SetDestinationUrlId(Guid destinationUrlId)
     {
         if (destinationUrlId == Guid.Empty)
-            throw new ArgumentException("DestinationUrlId não pode ser vazio.", nameof(destinationUrlId));
+            throw new ArgumentException("DestinationUrlId cannot be empty.", nameof(destinationUrlId));
         DestinationUrlId = destinationUrlId;
     }
 
     public virtual void SetPayload(string payload)
     {
         if (string.IsNullOrWhiteSpace(payload))
-            throw new ArgumentException("Payload não pode ser nulo ou vazio.", nameof(payload));
+            throw new ArgumentException("Payload cannot be null or empty.", nameof(payload));
 
         try { System.Text.Json.JsonDocument.Parse(payload); }
         catch (System.Text.Json.JsonException)
         {
-            throw new ArgumentException("Payload deve ser um JSON válido.", nameof(payload));
+            throw new ArgumentException("Payload must be valid JSON.", nameof(payload));
         }
 
         Payload = payload;
@@ -60,7 +60,7 @@ public class Event
     {
         if (Status != EventStatus.CriticalFailure)
             throw new InvalidOperationException(
-                "Somente eventos com status 'CriticalFailure' podem ser reenviados.");
+                "Only events with 'CriticalFailure' status can be replayed.");
 
         CurrentRetryCount = 0;
         NextAttemptAt = DateTimeOffset.UtcNow;
@@ -71,7 +71,7 @@ public class Event
     {
         if (Status != EventStatus.Pending && Status != EventStatus.WaitingRetry)
             throw new InvalidOperationException(
-                "Somente eventos com status 'Pending' ou 'WaitingRetry' podem ser cancelados.");
+                "Only events with 'Pending' or 'WaitingRetry' status can be cancelled.");
 
         Status = EventStatus.Cancelled;
     }
@@ -80,7 +80,7 @@ public class Event
     {
         if (!IsActiveStatus())
             throw new InvalidOperationException(
-                "Apenas eventos em estado ativo (Pending, Processing ou WaitingRetry) podem ser marcados como Succeeded.");
+                "Only events in an active state (Pending, Processing or WaitingRetry) can be marked as Succeeded.");
         Status = EventStatus.Succeeded;
         DeliveredAt = DateTimeOffset.UtcNow;
     }
@@ -89,7 +89,7 @@ public class Event
     {
         if (!IsActiveStatus())
             throw new InvalidOperationException(
-                "Apenas eventos em estado ativo (Pending, Processing ou WaitingRetry) podem ser marcados como WaitingRetry.");
+                "Only events in an active state (Pending, Processing or WaitingRetry) can be marked as WaitingRetry.");
         Status = EventStatus.WaitingRetry;
         CurrentRetryCount = retryCount;
         NextAttemptAt = nextAttemptAt;
@@ -99,7 +99,7 @@ public class Event
     {
         if (!IsActiveStatus())
             throw new InvalidOperationException(
-                "Apenas eventos em estado ativo (Pending, Processing ou WaitingRetry) podem ser marcados como CriticalFailure.");
+                "Only events in an active state (Pending, Processing or WaitingRetry) can be marked as CriticalFailure.");
         Status = EventStatus.CriticalFailure;
     }
 
@@ -107,7 +107,7 @@ public class Event
     {
         if (!IsActiveStatus())
             throw new InvalidOperationException(
-                "Apenas eventos em estado ativo (Pending, Processing ou WaitingRetry) podem ser marcados como AuthenticationFailed.");
+                "Only events in an active state (Pending, Processing or WaitingRetry) can be marked as AuthenticationFailed.");
         Status = EventStatus.AuthenticationFailed;
     }
 
@@ -118,7 +118,7 @@ public class Event
     {
         if (key is not null && key.Length > 255)
             throw new ArgumentException(
-                "IdempotencyKey não pode exceder 255 caracteres.", nameof(key));
+                "IdempotencyKey cannot exceed 255 characters.", nameof(key));
         IdempotencyKey = key;
     }
 }

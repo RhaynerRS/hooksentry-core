@@ -60,7 +60,7 @@ public class DestinationUrl
     public virtual void SetTenantId(Guid tenantId)
     {
         if (tenantId == Guid.Empty)
-            throw new ArgumentException("TenantId não pode ser vazio.", nameof(tenantId));
+            throw new ArgumentException("TenantId cannot be empty.", nameof(tenantId));
 
         TenantId = tenantId;
     }
@@ -76,11 +76,11 @@ public class DestinationUrl
     {
         if (authType.HasValue && string.IsNullOrWhiteSpace(credentialsEncrypted))
             throw new ArgumentException(
-                "Credenciais criptografadas são obrigatórias quando AuthType é definido.", nameof(credentialsEncrypted));
+                "Encrypted credentials are required when AuthType is set.", nameof(credentialsEncrypted));
 
         if (!authType.HasValue && !string.IsNullOrWhiteSpace(credentialsEncrypted))
             throw new ArgumentException(
-                "AuthType é obrigatório quando credenciais são fornecidas.", nameof(authType));
+                "AuthType is required when credentials are provided.", nameof(authType));
 
         AuthType = authType;
         CredentialsEncrypted = credentialsEncrypted;
@@ -98,16 +98,16 @@ public class DestinationUrl
     private static void ValidateUrl(string url)
     {
         if (string.IsNullOrWhiteSpace(url))
-            throw new ArgumentException("URL não pode ser nula ou vazia.", nameof(url));
+            throw new ArgumentException("URL cannot be null or empty.", nameof(url));
 
         if (!Uri.TryCreate(url, UriKind.Absolute, out var uri) ||
             !uri.Scheme.Equals("https", StringComparison.OrdinalIgnoreCase))
-            throw new ArgumentException("URL deve ser um endereço HTTPS válido.", nameof(url));
+            throw new ArgumentException("URL must be a valid HTTPS address.", nameof(url));
     }
 
     private static void ValidateServerRateLimit(int limit)
     {
         if (limit < 1)
-            throw new ArgumentOutOfRangeException(nameof(limit), "ServerRateLimit deve ser no mínimo 1.");
+            throw new ArgumentOutOfRangeException(nameof(limit), "ServerRateLimit must be at least 1.");
     }
 }

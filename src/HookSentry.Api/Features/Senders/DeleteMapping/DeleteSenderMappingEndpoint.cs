@@ -13,19 +13,19 @@ public class DeleteSenderMappingEndpoint : IEndpoint
         app.MapDelete("/api/v1/senders/{id:guid}/mapping", Handle)
             .WithName("DeleteSenderMapping")
             .WithTags("Senders")
-            .WithSummary("Remove o mapeamento de payload de um sender")
+            .WithSummary("Removes the payload mapping of a sender")
             .WithDescription("""
-                Remove o mapeamento configurado para o sender. Após a remoção, eventos ingeridos via
-                token deste sender serão enfileirados com o payload bruto, sem transformação.
+                Removes the configured mapping for the sender. After removal, events ingested via
+                this sender's token will be queued with the raw payload, without transformation.
 
-                **Parâmetros de rota:**
-                - `id` *(obrigatório)*: UUID do sender
+                **Route parameters:**
+                - `id` *(required)*: sender UUID
 
-                **Códigos de retorno:**
-                - `204 No Content`: mapeamento removido
-                - `401 Unauthorized`: token JWT ausente ou inválido
-                - `403 Forbidden`: sender pertence a outro tenant
-                - `404 Not Found`: sender não encontrado
+                **Return codes:**
+                - `204 No Content`: mapping removed
+                - `401 Unauthorized`: missing or invalid JWT token
+                - `403 Forbidden`: sender belongs to another tenant
+                - `404 Not Found`: sender not found
                 """)
             .RequireAuthorization()
             .Produces(StatusCodes.Status204NoContent)

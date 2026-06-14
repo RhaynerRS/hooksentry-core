@@ -14,21 +14,21 @@ public class RegenerateSenderIngestTokenEndpoint : IEndpoint
         app.MapPost("/api/v1/senders/{id:guid}/ingest-token", Handle)
             .WithName("RegenerateSenderIngestToken")
             .WithTags("Senders")
-            .WithSummary("Regenera o ingest token de um sender")
+            .WithSummary("Regenerates the ingest token of a sender")
             .WithDescription("""
-                Gera um novo ingest token para o sender informado, invalidando o anterior imediatamente.
+                Generates a new ingest token for the specified sender, immediately invalidating the previous one.
 
-                O token retornado é exibido **uma única vez** — atualize a configuração do webhook
-                no serviço externo antes de fechar esta resposta.
+                The returned token is shown **only once** — update the webhook configuration
+                in the external service before closing this response.
 
-                **Parâmetros de rota:**
-                - `id` *(obrigatório)*: UUID do sender
+                **Route parameters:**
+                - `id` *(required)*: sender UUID
 
-                **Códigos de retorno:**
-                - `200 OK`: novo ingest token gerado
-                - `401 Unauthorized`: token JWT ausente ou inválido
-                - `403 Forbidden`: sender pertence a outro tenant
-                - `404 Not Found`: sender não encontrado
+                **Return codes:**
+                - `200 OK`: new ingest token generated
+                - `401 Unauthorized`: missing or invalid JWT token
+                - `403 Forbidden`: sender belongs to another tenant
+                - `404 Not Found`: sender not found
                 """)
             .RequireAuthorization()
             .Produces<SenderIngestTokenResponse>()

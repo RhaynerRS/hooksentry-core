@@ -15,21 +15,21 @@ public class RegenerateIngestTokenEndpoint : IEndpoint
         app.MapPost("/api/v1/destinations/{id:guid}/ingest-token", Handle)
             .WithName("RegenerateIngestToken")
             .WithTags("Destinations")
-            .WithSummary("Regenera o ingest token de uma URL de destino")
+            .WithSummary("Regenerates the ingest token of a destination URL")
             .WithDescription("""
-                Gera um novo ingest token para a URL de destino informada, invalidando o anterior.
+                Generates a new ingest token for the specified destination URL, invalidating the previous one.
 
-                O token retornado é exibido **uma única vez** — atualize imediatamente a configuração
-                do webhook no serviço externo antes de fechar esta resposta.
+                The returned token is shown **only once** — immediately update the webhook configuration
+                in the external service before closing this response.
 
-                **Parâmetros de rota:**
-                - `id` *(obrigatório)*: UUID da URL de destino
+                **Route parameters:**
+                - `id` *(required)*: destination URL UUID
 
-                **Códigos de retorno:**
-                - `200 OK`: novo ingest token gerado
-                - `401 Unauthorized`: token ausente ou inválido
-                - `403 Forbidden`: URL de destino pertence a outro tenant
-                - `404 Not Found`: URL de destino não encontrada
+                **Return codes:**
+                - `200 OK`: new ingest token generated
+                - `401 Unauthorized`: missing or invalid token
+                - `403 Forbidden`: destination URL belongs to another tenant
+                - `404 Not Found`: destination URL not found
                 """)
             .RequireAuthorization()
             .Produces<IngestTokenResponse>()

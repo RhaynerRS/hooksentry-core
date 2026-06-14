@@ -13,18 +13,18 @@ public class GetSenderEndpoint : IEndpoint
         app.MapGet("/api/v1/senders/{id:guid}", Handle)
             .WithName("GetSender")
             .WithTags("Senders")
-            .WithSummary("Retorna detalhes de um sender")
+            .WithSummary("Returns details of a sender")
             .WithDescription("""
-                Retorna os dados de um sender pertencente ao tenant autenticado.
+                Returns data for a sender belonging to the authenticated tenant.
 
-                **Parâmetros de rota:**
-                - `id` *(obrigatório)*: UUID do sender
+                **Route parameters:**
+                - `id` *(required)*: sender UUID
 
-                **Códigos de retorno:**
-                - `200 OK`: dados do sender
-                - `401 Unauthorized`: token JWT ausente ou inválido
-                - `403 Forbidden`: sender pertence a outro tenant
-                - `404 Not Found`: sender não encontrado
+                **Return codes:**
+                - `200 OK`: sender data
+                - `401 Unauthorized`: missing or invalid JWT token
+                - `403 Forbidden`: sender belongs to another tenant
+                - `404 Not Found`: sender not found
                 """)
             .RequireAuthorization()
             .Produces<SenderResponse>()

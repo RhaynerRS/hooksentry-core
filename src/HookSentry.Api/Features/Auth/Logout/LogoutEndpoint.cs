@@ -13,18 +13,18 @@ public class LogoutEndpoint : IEndpoint
         app.MapPost("/api/v1/auth/logout", Handle)
             .WithName("Logout")
             .WithTags("Auth")
-            .WithSummary("Invalida o refresh token do usuário autenticado")
+            .WithSummary("Invalidates the authenticated user's refresh token")
             .WithDescription("""
-                Remove o refresh token do Redis, impedindo que ele seja reutilizado.
-                O access token (JWT) permanece válido até expirar naturalmente (15 minutos).
+                Removes the refresh token from Redis, preventing it from being reused.
+                The access token (JWT) remains valid until it expires naturally (15 minutes).
 
                 **Body:**
-                - `refreshToken` *(obrigatório)*: refresh token a ser invalidado
+                - `refreshToken` *(required)*: refresh token to invalidate
 
-                **Códigos de retorno:**
-                - `204 No Content`: logout realizado com sucesso
-                - `400 Bad Request`: refreshToken ausente
-                - `401 Unauthorized`: token JWT ausente ou inválido, ou refresh token não pertence ao usuário
+                **Return codes:**
+                - `204 No Content`: logout successful
+                - `400 Bad Request`: refreshToken missing
+                - `401 Unauthorized`: missing or invalid JWT, or refresh token does not belong to the user
                 """)
             .RequireAuthorization()
             .Produces(StatusCodes.Status204NoContent)
@@ -39,7 +39,7 @@ public class LogoutEndpoint : IEndpoint
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.RefreshToken))
-            return Results.BadRequest("RefreshToken é obrigatório.");
+            return Results.BadRequest("RefreshToken is required.");
         if (InputSanitizer.ValidateToken(request.RefreshToken) is { } tokenErr)
             return Results.BadRequest(tokenErr);
 

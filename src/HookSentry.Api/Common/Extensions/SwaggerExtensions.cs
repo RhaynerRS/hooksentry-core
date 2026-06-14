@@ -14,7 +14,7 @@ public static class SwaggerExtensions
             {
                 Title = "HookSentry API",
                 Version = "v1",
-                Description = "API de gerenciamento de webhooks e hooks de segurança."
+                Description = "Webhook management and security hooks API."
             });
 
             options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -24,7 +24,7 @@ public static class SwaggerExtensions
                 Scheme = "bearer",
                 BearerFormat = "JWT",
                 In = ParameterLocation.Header,
-                Description = "Informe: Bearer {token}"
+                Description = "Enter: Bearer {token}"
             });
 
             options.AddSecurityDefinition("ApiKey", new OpenApiSecurityScheme
@@ -32,7 +32,7 @@ public static class SwaggerExtensions
                 Name = "X-Api-Key",
                 Type = SecuritySchemeType.ApiKey,
                 In = ParameterLocation.Header,
-                Description = "Chave de API para autenticação via header X-Api-Key."
+                Description = "API key for authentication via X-Api-Key header."
             });
 
             options.OperationFilter<SecurityRequirementsOperationFilter>();

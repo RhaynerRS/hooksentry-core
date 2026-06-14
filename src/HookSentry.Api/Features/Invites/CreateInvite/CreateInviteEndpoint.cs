@@ -16,22 +16,22 @@ public class CreateInviteEndpoint : IEndpoint
         app.MapPost("/api/v1/invites", Handle)
             .WithName("CreateInvite")
             .WithTags("Invites")
-            .WithSummary("Gera um link pré-assinado para cadastro no tenant")
+            .WithSummary("Generates a pre-signed registration link for the tenant")
             .WithDescription("""
-                Cria um token de convite que permite um novo usuário se cadastrar no tenant
-                sem precisar de credenciais prévias. Apenas administradores podem gerar convites.
+                Creates an invite token that allows a new user to register in the tenant
+                without prior credentials. Only administrators can generate invites.
 
-                **Requer autenticação com role Admin.**
+                **Requires authentication with Admin role.**
 
                 **Body:**
-                - `validityDays` *(opcional, padrão: 7)*: validade do convite em dias — mínimo 1, máximo 30
+                - `validityDays` *(optional, default: 7)*: invite validity in days — minimum 1, maximum 30
 
-                **Códigos de retorno:**
-                - `201 Created`: convite criado — o campo `token` compõe o link de cadastro
-                - `400 Bad Request`: validityDays fora do intervalo permitido (1–30)
-                - `401 Unauthorized`: token ausente ou inválido
-                - `403 Forbidden`: usuário não tem role Admin
-                - `404 Not Found`: tenant não encontrado
+                **Return codes:**
+                - `201 Created`: invite created — the `token` field composes the registration link
+                - `400 Bad Request`: validityDays outside the allowed range (1–30)
+                - `401 Unauthorized`: missing or invalid token
+                - `403 Forbidden`: user does not have Admin role
+                - `404 Not Found`: tenant not found
                 """)
             .RequireAuthorization()
             .Produces<InviteTokenResponse>(StatusCodes.Status201Created)

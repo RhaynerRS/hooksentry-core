@@ -15,30 +15,30 @@ public class SetSenderMappingEndpoint : IEndpoint
         app.MapPost("/api/v1/senders/{id:guid}/mapping", Handle)
             .WithName("SetSenderMapping")
             .WithTags("Senders")
-            .WithSummary("Cria ou substitui o mapeamento de payload de um sender")
+            .WithSummary("Creates or replaces the payload mapping of a sender")
             .WithDescription("""
-                Define as regras de transformação de payload para o sender informado. O mapeamento é
-                aplicado durante a ingestão quando o `sndr_` token é utilizado.
+                Defines payload transformation rules for the specified sender. The mapping is
+                applied during ingestion when the `sndr_` token is used.
 
-                O body deve ser um objeto JSON onde cada chave é o nome do campo no payload de saída
-                e o valor é uma expressão DSL descrevendo a origem.
+                The body must be a JSON object where each key is the field name in the output payload
+                and the value is a DSL expression describing the source.
 
-                **DSL de mapeamento:**
-                - `"campo"` — copia o campo `campo` da raiz
-                - `"obj:campo"` — acessa `obj.campo` (`:` é separador de aninhamento)
-                - `"array[n]"` — acessa o elemento de índice `n` de um campo array
-                - `"a+b"` — soma aritmética (se ambos numéricos) ou concatenação (se string)
-                - `["expr1", "expr2"]` — constrói novo array com os valores resolvidos
+                **Mapping DSL:**
+                - `"field"` — copies the `field` field from the root
+                - `"obj:field"` — accesses `obj.field` (`:` is the nesting separator)
+                - `"array[n]"` — accesses the element at index `n` of an array field
+                - `"a+b"` — arithmetic sum (if both numeric) or concatenation (if string)
+                - `["expr1", "expr2"]` — builds a new array with the resolved values
 
-                **Parâmetros de rota:**
-                - `id` *(obrigatório)*: UUID do sender
+                **Route parameters:**
+                - `id` *(required)*: sender UUID
 
-                **Códigos de retorno:**
-                - `200 OK`: mapeamento salvo
-                - `400 Bad Request`: body não é um objeto JSON válido
-                - `401 Unauthorized`: token JWT ausente ou inválido
-                - `403 Forbidden`: sender pertence a outro tenant
-                - `404 Not Found`: sender não encontrado
+                **Return codes:**
+                - `200 OK`: mapping saved
+                - `400 Bad Request`: body is not a valid JSON object
+                - `401 Unauthorized`: missing or invalid JWT token
+                - `403 Forbidden`: sender belongs to another tenant
+                - `404 Not Found`: sender not found
                 """)
             .RequireAuthorization()
             .Produces<SenderMappingResponse>()
@@ -59,14 +59,14 @@ public class SetSenderMappingEndpoint : IEndpoint
         if (user.RequireTenantId(out var tenantId) is { } err) return err;
 
         if (mappingBody.ValueKind != JsonValueKind.Object)
-            return Results.BadRequest("O mapeamento deve ser um objeto JSON.");
+            return Results.BadRequest("The mapping must be a JSON object.");
 
         await using var uow = uowFactory.Create();
 
         var sender = await senderRepository.FindAsync(id, ct);
         if (sender is null) return Results.NotFound();
         if (sender.Mapping != null)
-            return Results.BadRequest("O mapeamento já existe para este sender.");
+            return Results.BadRequest("A mapping already exists for this sender.");
         if (sender.TenantId != tenantId) return Results.Forbid();
 
         sender.SetMapping(mappingBody.GetRawText());

@@ -28,25 +28,25 @@ public class InviteToken
     private void SetTenantId(Guid tenantId)
     {
         if (tenantId == Guid.Empty)
-            throw new ArgumentException("TenantId não pode ser vazio.", nameof(tenantId));
+            throw new ArgumentException("TenantId cannot be empty.", nameof(tenantId));
         TenantId = tenantId;
     }
 
     private void SetValidityDays(int validityDays)
     {
         if (validityDays < 1)
-            throw new ArgumentOutOfRangeException(nameof(validityDays), "Validade deve ser de no mínimo 1 dia.");
+            throw new ArgumentOutOfRangeException(nameof(validityDays), "Validity must be at least 1 day.");
         if (validityDays > 30)
-            throw new ArgumentOutOfRangeException(nameof(validityDays), "Validade não pode ultrapassar 30 dias.");
+            throw new ArgumentOutOfRangeException(nameof(validityDays), "Validity cannot exceed 30 days.");
         ExpiresAt = DateTimeOffset.UtcNow.AddDays(validityDays);
     }
 
     public virtual void Use()
     {
         if (Status == InviteTokenStatus.Used)
-            throw new InvalidOperationException("Este convite já foi utilizado.");
+            throw new InvalidOperationException("This invite has already been used.");
         if (DateTimeOffset.UtcNow > ExpiresAt)
-            throw new InvalidOperationException("Este convite expirou.");
+            throw new InvalidOperationException("This invite has expired.");
         UsedAt = DateTimeOffset.UtcNow;
         Status = InviteTokenStatus.Used;
         UpdatedAt = DateTimeOffset.UtcNow;

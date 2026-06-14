@@ -15,19 +15,19 @@ public class RevokeApiKeyEndpoint : IEndpoint
         app.MapDelete("/api/v1/apikeys/{id:guid}", Handle)
             .WithName("RevokeApiKey")
             .WithTags("API Keys")
-            .WithSummary("Revoga uma API key")
+            .WithSummary("Revokes an API key")
             .WithDescription("""
-                Revoga imediatamente a API key informada. A chave é invalidada no cache Redis
-                e não poderá mais ser usada para autenticação.
+                Immediately revokes the specified API key. The key is invalidated in the Redis cache
+                and can no longer be used for authentication.
 
-                **Parâmetros de rota:**
-                - `id` *(obrigatório)*: UUID da API key a revogar
+                **Route parameters:**
+                - `id` *(required)*: UUID of the API key to revoke
 
-                **Códigos de retorno:**
-                - `200 OK`: chave revogada com sucesso
-                - `401 Unauthorized`: JWT ausente ou inválido
-                - `403 Forbidden`: chave pertence a outro tenant
-                - `404 Not Found`: chave não encontrada ou já revogada
+                **Return codes:**
+                - `200 OK`: key revoked successfully
+                - `401 Unauthorized`: missing or invalid JWT
+                - `403 Forbidden`: key belongs to another tenant
+                - `404 Not Found`: key not found or already revoked
                 """)
             .RequireAuthorization()
             .Produces<ApiKeyResponse>()
