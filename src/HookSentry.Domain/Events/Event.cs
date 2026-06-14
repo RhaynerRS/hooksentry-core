@@ -28,14 +28,14 @@ public class Event
         AcceptedAt = DateTimeOffset.UtcNow;
     }
 
-    public virtual void SetTenantId(Guid tenantId)
+    private void SetTenantId(Guid tenantId)
     {
         if (tenantId == Guid.Empty)
             throw new ArgumentException("TenantId não pode ser vazio.", nameof(tenantId));
         TenantId = tenantId;
     }
 
-    public virtual void SetDestinationUrlId(Guid destinationUrlId)
+    private void SetDestinationUrlId(Guid destinationUrlId)
     {
         if (destinationUrlId == Guid.Empty)
             throw new ArgumentException("DestinationUrlId não pode ser vazio.", nameof(destinationUrlId));
@@ -78,12 +78,18 @@ public class Event
 
     public virtual void MarkSucceeded()
     {
+        if (!IsActiveStatus())
+            throw new InvalidOperationException(
+                "Apenas eventos em estado ativo (Pending, Processing ou WaitingRetry) podem ser marcados como Succeeded.");
         Status = EventStatus.Succeeded;
         DeliveredAt = DateTimeOffset.UtcNow;
     }
 
     public virtual void MarkWaitingRetry(int retryCount, DateTimeOffset nextAttemptAt)
     {
+        if (!IsActiveStatus())
+            throw new InvalidOperationException(
+                "Apenas eventos em estado ativo (Pending, Processing ou WaitingRetry) podem ser marcados como WaitingRetry.");
         Status = EventStatus.WaitingRetry;
         CurrentRetryCount = retryCount;
         NextAttemptAt = nextAttemptAt;
@@ -91,13 +97,22 @@ public class Event
 
     public virtual void MarkCriticalFailure()
     {
+        if (!IsActiveStatus())
+            throw new InvalidOperationException(
+                "Apenas eventos em estado ativo (Pending, Processing ou WaitingRetry) podem ser marcados como CriticalFailure.");
         Status = EventStatus.CriticalFailure;
     }
 
     public virtual void MarkAuthenticationFailed()
     {
+        if (!IsActiveStatus())
+            throw new InvalidOperationException(
+                "Apenas eventos em estado ativo (Pending, Processing ou WaitingRetry) podem ser marcados como AuthenticationFailed.");
         Status = EventStatus.AuthenticationFailed;
     }
+
+    private bool IsActiveStatus() =>
+        Status is EventStatus.Pending or EventStatus.Processing or EventStatus.WaitingRetry;
 
     private void SetIdempotencyKey(string? key)
     {

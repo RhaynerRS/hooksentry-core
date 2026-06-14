@@ -1,6 +1,15 @@
 using FluentNHibernate.Cfg;
 using FluentNHibernate.Cfg.Db;
+using HookSentry.Domain;
+using HookSentry.Domain.ApiKeys;
+using HookSentry.Domain.Destinations;
+using HookSentry.Domain.Events;
+using HookSentry.Domain.Invites;
+using HookSentry.Domain.Senders;
+using HookSentry.Domain.Tenants;
+using HookSentry.Domain.Users;
 using HookSentry.Infrastructure.Persistence.Mappings;
+using HookSentry.Infrastructure.Persistence.Repositories;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using NHibernate;
@@ -24,6 +33,15 @@ public static class PersistenceExtensions
 
         services.AddSingleton(sessionFactory);
         services.AddScoped(sp => sp.GetRequiredService<ISessionFactory>().OpenSession());
+
+        services.AddScoped<IUnitOfWorkFactory, NHibernateUnitOfWorkFactory>();
+        services.AddScoped<IUserRepository, UserRepository>();
+        services.AddScoped<ITenantRepository, TenantRepository>();
+        services.AddScoped<IDestinationUrlRepository, DestinationUrlRepository>();
+        services.AddScoped<IWebhookSenderRepository, WebhookSenderRepository>();
+        services.AddScoped<IEventRepository, EventRepository>();
+        services.AddScoped<IApiKeyRepository, ApiKeyRepository>();
+        services.AddScoped<IInviteTokenRepository, InviteTokenRepository>();
 
         return services;
     }

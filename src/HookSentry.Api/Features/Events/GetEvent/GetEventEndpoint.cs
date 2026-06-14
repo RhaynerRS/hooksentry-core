@@ -3,6 +3,7 @@ using HookSentry.Api.Common.Endpoints;
 using HookSentry.Api.Common.Extensions;
 using HookSentry.Api.DataTransfer.Events.Responses;
 using HookSentry.Domain.Events;
+
 namespace HookSentry.Api.Features.Events.GetEvent;
 
 public class GetEventEndpoint : IEndpoint
@@ -31,12 +32,12 @@ public class GetEventEndpoint : IEndpoint
     private static async Task<IResult> Handle(
         Guid id,
         ClaimsPrincipal user,
-        NHibernate.ISession session,
+        IEventRepository eventRepository,
         CancellationToken ct)
     {
         if (user.RequireTenantId(out var tenantId) is { } err) return err;
 
-        var evento = await session.GetAsync<Event>(id, ct);
+        var evento = await eventRepository.FindAsync(id, ct);
 
         if (evento is null)
             return Results.NotFound();

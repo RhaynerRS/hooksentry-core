@@ -171,90 +171,6 @@ public class EventTests
         }
     }
 
-    public class MetodoSetTenantId
-    {
-        [Fact]
-        public void Deve_Atualizar_TenantId()
-        {
-            var evento = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
-            var novoId = Guid.NewGuid();
-
-            evento.SetTenantId(novoId);
-
-            Assert.Equal(novoId, evento.TenantId);
-        }
-
-        [Fact]
-        public void Deve_Lancar_Excecao_Quando_TenantId_For_Vazio()
-        {
-            var evento = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
-
-            Assert.Throws<ArgumentException>(() => evento.SetTenantId(Guid.Empty));
-        }
-
-        [Fact]
-        public void Nao_Deve_Alterar_DestinationUrlId()
-        {
-            var evento = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
-
-            evento.SetTenantId(Guid.NewGuid());
-
-            Assert.Equal(ValidDestinationUrlId, evento.DestinationUrlId);
-        }
-
-        [Fact]
-        public void Nao_Deve_Alterar_Payload()
-        {
-            var evento = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
-
-            evento.SetTenantId(Guid.NewGuid());
-
-            Assert.Equal(ValidPayload, evento.Payload);
-        }
-    }
-
-    public class MetodoSetDestinationUrlId
-    {
-        [Fact]
-        public void Deve_Atualizar_DestinationUrlId()
-        {
-            var evento = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
-            var novoId = Guid.NewGuid();
-
-            evento.SetDestinationUrlId(novoId);
-
-            Assert.Equal(novoId, evento.DestinationUrlId);
-        }
-
-        [Fact]
-        public void Deve_Lancar_Excecao_Quando_DestinationUrlId_For_Vazio()
-        {
-            var evento = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
-
-            Assert.Throws<ArgumentException>(() => evento.SetDestinationUrlId(Guid.Empty));
-        }
-
-        [Fact]
-        public void Nao_Deve_Alterar_TenantId()
-        {
-            var evento = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
-
-            evento.SetDestinationUrlId(Guid.NewGuid());
-
-            Assert.Equal(ValidTenantId, evento.TenantId);
-        }
-
-        [Fact]
-        public void Nao_Deve_Alterar_Payload()
-        {
-            var evento = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
-
-            evento.SetDestinationUrlId(Guid.NewGuid());
-
-            Assert.Equal(ValidPayload, evento.Payload);
-        }
-    }
-
     public class MetodoSetPayload
     {
         [Fact]
@@ -309,6 +225,138 @@ public class EventTests
             evento.SetPayload("{\"updated\":true}");
 
             Assert.Equal(acceptedAtOriginal, evento.AcceptedAt);
+        }
+    }
+
+    public class MetodoMarkSucceeded
+    {
+        [Theory]
+        [InlineData(EventStatus.Pending)]
+        [InlineData(EventStatus.Processing)]
+        [InlineData(EventStatus.WaitingRetry)]
+        public void Deve_Definir_Status_Como_Succeeded_A_Partir_De_Estado_Ativo(EventStatus status)
+        {
+            var evento = new EventBuilder().ComStatus(status).Build();
+
+            evento.MarkSucceeded();
+
+            Assert.Equal(EventStatus.Succeeded, evento.Status);
+        }
+
+        [Fact]
+        public void Deve_Definir_DeliveredAt()
+        {
+            var antes = DateTimeOffset.UtcNow;
+            var evento = new Event(ValidTenantId, ValidDestinationUrlId, ValidPayload);
+
+            evento.MarkSucceeded();
+
+            Assert.NotNull(evento.DeliveredAt);
+            Assert.True(evento.DeliveredAt >= antes);
+        }
+
+        [Theory]
+        [InlineData(EventStatus.Succeeded)]
+        [InlineData(EventStatus.Failed)]
+        [InlineData(EventStatus.CriticalFailure)]
+        [InlineData(EventStatus.AuthenticationFailed)]
+        [InlineData(EventStatus.Cancelled)]
+        public void Deve_Lancar_Excecao_A_Partir_De_Estado_Terminal(EventStatus status)
+        {
+            var evento = new EventBuilder().ComStatus(status).Build();
+
+            Assert.Throws<InvalidOperationException>(() => evento.MarkSucceeded());
+        }
+    }
+
+    public class MetodoMarkWaitingRetry
+    {
+        [Theory]
+        [InlineData(EventStatus.Pending)]
+        [InlineData(EventStatus.Processing)]
+        [InlineData(EventStatus.WaitingRetry)]
+        public void Deve_Definir_Status_Como_WaitingRetry_A_Partir_De_Estado_Ativo(EventStatus status)
+        {
+            var evento = new EventBuilder().ComStatus(status).Build();
+            var proxima = DateTimeOffset.UtcNow.AddMinutes(5);
+
+            evento.MarkWaitingRetry(1, proxima);
+
+            Assert.Equal(EventStatus.WaitingRetry, evento.Status);
+            Assert.Equal(1, evento.CurrentRetryCount);
+            Assert.Equal(proxima, evento.NextAttemptAt);
+        }
+
+        [Theory]
+        [InlineData(EventStatus.Succeeded)]
+        [InlineData(EventStatus.Failed)]
+        [InlineData(EventStatus.CriticalFailure)]
+        [InlineData(EventStatus.AuthenticationFailed)]
+        [InlineData(EventStatus.Cancelled)]
+        public void Deve_Lancar_Excecao_A_Partir_De_Estado_Terminal(EventStatus status)
+        {
+            var evento = new EventBuilder().ComStatus(status).Build();
+
+            Assert.Throws<InvalidOperationException>(
+                () => evento.MarkWaitingRetry(1, DateTimeOffset.UtcNow.AddMinutes(5)));
+        }
+    }
+
+    public class MetodoMarkCriticalFailure
+    {
+        [Theory]
+        [InlineData(EventStatus.Pending)]
+        [InlineData(EventStatus.Processing)]
+        [InlineData(EventStatus.WaitingRetry)]
+        public void Deve_Definir_Status_Como_CriticalFailure_A_Partir_De_Estado_Ativo(EventStatus status)
+        {
+            var evento = new EventBuilder().ComStatus(status).Build();
+
+            evento.MarkCriticalFailure();
+
+            Assert.Equal(EventStatus.CriticalFailure, evento.Status);
+        }
+
+        [Theory]
+        [InlineData(EventStatus.Succeeded)]
+        [InlineData(EventStatus.Failed)]
+        [InlineData(EventStatus.CriticalFailure)]
+        [InlineData(EventStatus.AuthenticationFailed)]
+        [InlineData(EventStatus.Cancelled)]
+        public void Deve_Lancar_Excecao_A_Partir_De_Estado_Terminal(EventStatus status)
+        {
+            var evento = new EventBuilder().ComStatus(status).Build();
+
+            Assert.Throws<InvalidOperationException>(() => evento.MarkCriticalFailure());
+        }
+    }
+
+    public class MetodoMarkAuthenticationFailed
+    {
+        [Theory]
+        [InlineData(EventStatus.Pending)]
+        [InlineData(EventStatus.Processing)]
+        [InlineData(EventStatus.WaitingRetry)]
+        public void Deve_Definir_Status_Como_AuthenticationFailed_A_Partir_De_Estado_Ativo(EventStatus status)
+        {
+            var evento = new EventBuilder().ComStatus(status).Build();
+
+            evento.MarkAuthenticationFailed();
+
+            Assert.Equal(EventStatus.AuthenticationFailed, evento.Status);
+        }
+
+        [Theory]
+        [InlineData(EventStatus.Succeeded)]
+        [InlineData(EventStatus.Failed)]
+        [InlineData(EventStatus.CriticalFailure)]
+        [InlineData(EventStatus.AuthenticationFailed)]
+        [InlineData(EventStatus.Cancelled)]
+        public void Deve_Lancar_Excecao_A_Partir_De_Estado_Terminal(EventStatus status)
+        {
+            var evento = new EventBuilder().ComStatus(status).Build();
+
+            Assert.Throws<InvalidOperationException>(() => evento.MarkAuthenticationFailed());
         }
     }
 

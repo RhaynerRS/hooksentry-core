@@ -38,12 +38,12 @@ public class GetUserEndpoint : IEndpoint
     private static async Task<IResult> Handle(
         Guid id,
         ClaimsPrincipal principal,
-        NHibernate.ISession session,
+        IUserRepository userRepository,
         CancellationToken ct)
     {
         if (principal.RequireTenantId(out var tenantId) is { } err) return err;
 
-        var user = await session.GetAsync<User>(id, ct);
+        var user = await userRepository.FindAsync(id, ct);
 
         if (user is null) return Results.NotFound();
         if (user.TenantId != tenantId) return Results.Forbid();

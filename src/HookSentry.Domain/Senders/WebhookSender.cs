@@ -1,3 +1,4 @@
+using System.Text.Json;
 using HookSentry.Domain.Common;
 
 namespace HookSentry.Domain.Senders;
@@ -59,6 +60,20 @@ public class WebhookSender
 
     public virtual void SetMapping(string? mappingJson)
     {
+        if (mappingJson is not null)
+        {
+            try
+            {
+                using var doc = JsonDocument.Parse(mappingJson);
+                if (doc.RootElement.ValueKind != JsonValueKind.Object)
+                    throw new ArgumentException("Mapping deve ser um objeto JSON válido.", nameof(mappingJson));
+            }
+            catch (JsonException)
+            {
+                throw new ArgumentException("Mapping deve ser um JSON válido.", nameof(mappingJson));
+            }
+        }
+
         Mapping = mappingJson;
         UpdatedAt = DateTimeOffset.UtcNow;
     }

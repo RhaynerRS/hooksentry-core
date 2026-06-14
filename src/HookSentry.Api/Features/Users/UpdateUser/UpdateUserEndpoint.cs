@@ -2,11 +2,11 @@ using System.Security.Claims;
 using HookSentry.Api.Common.Endpoints;
 using HookSentry.Api.Common.Extensions;
 using HookSentry.Api.Common.Validation;
-using HookSentry.Infrastructure.Security;
+using HookSentry.Domain;
+using HookSentry.Domain.Security;
 using HookSentry.Api.DataTransfer.Users.Requests;
 using HookSentry.Api.DataTransfer.Users.Responses;
 using HookSentry.Domain.Users;
-using NHibernate.Linq;
 
 namespace HookSentry.Api.Features.Users.UpdateUser;
 
@@ -53,44 +53,40 @@ public class UpdateUserEndpoint : IEndpoint
         UpdateUserRequest request,
         ClaimsPrincipal principal,
         IPasswordHasher passwordHasher,
-        NHibernate.ISession session,
+        IUserRepository userRepository,
+        IUnitOfWorkFactory uowFactory,
         CancellationToken ct)
     {
+        if (principal.RequireTenantId(out var tenantId) is { } err) return err;
+
+        await using var uow = uowFactory.Create();
+
+        var user = await userRepository.FindAsync(id, ct);
+
+        if (user is null) return Results.NotFound();
+        if (user.TenantId != tenantId) return Results.Forbid();
+
+        if (request.Email is not null)
         {
-            if (principal.RequireTenantId(out var tenantId) is { } err) return err;
+            if (InputSanitizer.ValidateEmail(request.Email) is { } emailErr)
+                return Results.BadRequest(emailErr);
 
-            using var tx = session.BeginTransaction();
-
-            var user = await session.GetAsync<User>(id, ct);
-
-            if (user is null) return Results.NotFound();
-            if (user.TenantId != tenantId) return Results.Forbid();
-
-            if (request.Email is not null)
-            {
-                if (InputSanitizer.ValidateEmail(request.Email) is { } emailErr)
-                    return Results.BadRequest(emailErr);
-
-                var normalizedEmail = request.Email.Trim().ToLowerInvariant();
-                var emailTaken = await session.Query<User>()
-                    .AnyAsync(u => u.Email == normalizedEmail && u.Id != id, ct);
-
-                if (emailTaken)
-                    return Results.Conflict($"E-mail '{request.Email}' já está em uso.");
-            }
-
-            try
-            {
-                if (request.Email is not null) user.SetEmail(request.Email);
-                if (request.Password is not null) user.SetPasswordHash(passwordHasher.Hash(request.Password));
-                if (request.Role is not null && principal.GetUserRole() == UserRole.Admin) user.SetRole(request.Role.Value);
-                if (request.Status == UserStatus.Active) user.Activate();
-                else if (request.Status == UserStatus.Inactive) user.Deactivate();
-            }
-            catch (ArgumentException ex) { return Results.BadRequest(ex.Message); }
-
-            await tx.CommitAsync(ct);
-            return Results.Ok(UserResponse.From(user));
+            var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+            if (await userRepository.EmailExistsExcludingAsync(normalizedEmail, id, ct))
+                return Results.Conflict($"E-mail '{request.Email}' já está em uso.");
         }
+
+        try
+        {
+            if (request.Email is not null) user.SetEmail(request.Email);
+            if (request.Password is not null) user.SetPasswordHash(passwordHasher.Hash(request.Password));
+            if (request.Role is not null && principal.GetUserRole() == UserRole.Admin) user.SetRole(request.Role.Value);
+            if (request.Status == UserStatus.Active) user.Activate();
+            else if (request.Status == UserStatus.Inactive) user.Deactivate();
+        }
+        catch (ArgumentException ex) { return Results.BadRequest(ex.Message); }
+
+        await uow.CommitAsync(ct);
+        return Results.Ok(UserResponse.From(user));
     }
 }

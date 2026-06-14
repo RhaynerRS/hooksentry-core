@@ -5,12 +5,13 @@ using System.Net.Http.Headers;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
+using HookSentry.Domain;
 using HookSentry.Domain.Destinations;
 using HookSentry.Domain.Events;
 using HookSentry.Infrastructure.RabbitMq;
-using HookSentry.Infrastructure.Security;
+using HookSentry.Domain.Security;
+using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
-using NHibernate;
 using RabbitMQ.Client;
 using RabbitMQ.Client.Events;
 
@@ -21,7 +22,7 @@ public sealed class WebhookDeliveryConsumer(
     IOptions<RabbitMqSettings> options,
     ICredentialEncryptionService encryption,
     IEventPublisher publisher,
-    ISessionFactory sessionFactory,
+    IServiceScopeFactory scopeFactory,
     ILogger<WebhookDeliveryConsumer> logger) : BackgroundService
 {
     private static readonly ActivitySource _source = new("HookSentry.Worker");
@@ -343,13 +344,16 @@ public sealed class WebhookDeliveryConsumer(
 
     private async Task UpdateEventAsync(Guid eventId, Action<Event> update, CancellationToken ct)
     {
-        using var session = sessionFactory.OpenSession();
-        using var tx = session.BeginTransaction();
-        var evento = await session.GetAsync<Event>(eventId, ct);
+        await using var scope = scopeFactory.CreateAsyncScope();
+        var repo = scope.ServiceProvider.GetRequiredService<IEventRepository>();
+        var uowFactory = scope.ServiceProvider.GetRequiredService<IUnitOfWorkFactory>();
+
+        await using var uow = uowFactory.Create();
+        var evento = await repo.FindAsync(eventId, ct);
         if (evento is not null)
         {
             update(evento);
-            await tx.CommitAsync(ct);
+            await uow.CommitAsync(ct);
         }
     }
 }

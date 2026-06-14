@@ -1,7 +1,4 @@
 namespace HookSentry.Infrastructure.Security;
 
-public interface IPasswordHasher
-{
-    string Hash(string plainTextPassword);
-    bool Verify(string plainTextPassword, string storedHash);
-}
+// Interface moved to HookSentry.Domain.Security — kept as forwarding alias for binary compatibility
+public interface IPasswordHasher : HookSentry.Domain.Security.IPasswordHasher { }

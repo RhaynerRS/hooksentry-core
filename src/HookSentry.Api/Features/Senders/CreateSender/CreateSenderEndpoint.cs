@@ -4,6 +4,7 @@ using HookSentry.Api.Common.Extensions;
 using HookSentry.Api.Common.Validation;
 using HookSentry.Api.DataTransfer.Senders.Requests;
 using HookSentry.Api.DataTransfer.Senders.Responses;
+using HookSentry.Domain;
 using HookSentry.Domain.Destinations;
 using HookSentry.Domain.Senders;
 
@@ -49,7 +50,9 @@ public class CreateSenderEndpoint : IEndpoint
         Guid destinationId,
         CreateSenderRequest request,
         ClaimsPrincipal user,
-        NHibernate.ISession session,
+        IDestinationUrlRepository destinationRepository,
+        IWebhookSenderRepository senderRepository,
+        IUnitOfWorkFactory uowFactory,
         CancellationToken ct)
     {
         if (user.RequireTenantId(out var tenantId) is { } err) return err;
@@ -60,7 +63,7 @@ public class CreateSenderEndpoint : IEndpoint
                 return Results.BadRequest(labelErr);
         }
 
-        var destination = await session.GetAsync<DestinationUrl>(destinationId, ct);
+        var destination = await destinationRepository.FindAsync(destinationId, ct);
         if (destination is null) return Results.NotFound($"Destination '{destinationId}' not found.");
         if (destination.TenantId != tenantId) return Results.Forbid();
 
@@ -76,9 +79,9 @@ public class CreateSenderEndpoint : IEndpoint
             return Results.BadRequest(ex.Message);
         }
 
-        using var tx = session.BeginTransaction();
-        await session.SaveAsync(sender, ct);
-        await tx.CommitAsync(ct);
+        await using var uow = uowFactory.Create();
+        await senderRepository.AddAsync(sender, ct);
+        await uow.CommitAsync(ct);
 
         return Results.Created(
             $"/api/v1/senders/{sender.Id}",

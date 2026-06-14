@@ -2,6 +2,7 @@ using System.Security.Claims;
 using HookSentry.Api.Common.Endpoints;
 using HookSentry.Api.Common.Extensions;
 using HookSentry.Api.DataTransfer.Senders.Responses;
+using HookSentry.Domain;
 using HookSentry.Domain.Senders;
 
 namespace HookSentry.Api.Features.Senders.RegenerateIngestToken;
@@ -39,20 +40,21 @@ public class RegenerateSenderIngestTokenEndpoint : IEndpoint
     private static async Task<IResult> Handle(
         Guid id,
         ClaimsPrincipal user,
-        NHibernate.ISession session,
+        IWebhookSenderRepository senderRepository,
+        IUnitOfWorkFactory uowFactory,
         CancellationToken ct)
     {
         if (user.RequireTenantId(out var tenantId) is { } err) return err;
 
-        using var tx = session.BeginTransaction();
+        await using var uow = uowFactory.Create();
 
-        var sender = await session.GetAsync<WebhookSender>(id, ct);
+        var sender = await senderRepository.FindAsync(id, ct);
         if (sender is null) return Results.NotFound();
         if (sender.TenantId != tenantId) return Results.Forbid();
 
         var rawToken = sender.RotateIngestToken();
 
-        await tx.CommitAsync(ct);
+        await uow.CommitAsync(ct);
 
         return Results.Ok(new SenderIngestTokenResponse(rawToken));
     }

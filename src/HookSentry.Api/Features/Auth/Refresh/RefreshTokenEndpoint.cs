@@ -1,12 +1,10 @@
-using System.Security.Cryptography;
 using HookSentry.Api.Common.Endpoints;
-using HookSentry.Api.Common.Extensions;
-using HookSentry.Api.Common.Validation;
 using HookSentry.Api.Common.Services;
+using HookSentry.Api.Common.Validation;
+using HookSentry.Domain.Users;
+using HookSentry.Infrastructure.Auth;
 using HookSentry.Api.DataTransfer.Auth.Requests;
 using HookSentry.Api.DataTransfer.Auth.Responses;
-using HookSentry.Domain.Users;
-using StackExchange.Redis;
 
 namespace HookSentry.Api.Features.Auth.Refresh;
 
@@ -38,9 +36,9 @@ public class RefreshTokenEndpoint : IEndpoint
 
     private static async Task<IResult> Handle(
         RefreshTokenRequest request,
-        NHibernate.ISession session,
+        IUserRepository userRepository,
         IJwtTokenService jwtTokenService,
-        IConnectionMultiplexer redis,
+        IRefreshTokenStore tokenStore,
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.RefreshToken))
@@ -48,43 +46,24 @@ public class RefreshTokenEndpoint : IEndpoint
         if (InputSanitizer.ValidateToken(request.RefreshToken) is { } tokenErr)
             return Results.BadRequest(tokenErr);
 
-        var db = redis.GetDatabase();
-        var value = await db.StringGetDeleteAsync($"{AuthExtensions.RefreshKeyPrefix}{request.RefreshToken}");
-
-        if (!value.HasValue)
+        var stored = await tokenStore.ConsumeAsync(request.RefreshToken);
+        if (stored is null)
             return Results.Unauthorized();
 
-        var parts = ((string)value!).Split('|');
-        if (parts.Length != 2
-            || !Guid.TryParse(parts[0], out var userId)
-            || !Guid.TryParse(parts[1], out var tenantId))
-            return Results.Unauthorized();
-
-        var user = await session.GetAsync<User>(userId, ct);
+        var (userId, tenantId) = stored.Value;
+        var user = await userRepository.FindAsync(userId, ct);
         if (user is null || user.Status != UserStatus.Active || user.TenantId != tenantId)
             return Results.Unauthorized();
 
         var (accessToken, _, expiresAt) = jwtTokenService.GenerateAccessToken(user);
-        var newRefreshToken = GenerateRefreshToken();
+        var newRefreshToken = jwtTokenService.GenerateRefreshToken();
 
-        await db.StringSetAsync(
-            $"{AuthExtensions.RefreshKeyPrefix}{newRefreshToken}",
-            $"{user.Id}|{user.TenantId}",
-            AuthExtensions.RefreshTokenTtl);
+        await tokenStore.StoreAsync(newRefreshToken, user.Id, user.TenantId);
 
         return Results.Ok(new AuthResponse(
             accessToken,
             (int)(expiresAt - DateTimeOffset.UtcNow).TotalSeconds,
             newRefreshToken,
             expiresAt));
-    }
-
-    private static string GenerateRefreshToken()
-    {
-        var bytes = RandomNumberGenerator.GetBytes(32);
-        return Convert.ToBase64String(bytes)
-            .Replace('+', '-')
-            .Replace('/', '_')
-            .TrimEnd('=');
     }
 }

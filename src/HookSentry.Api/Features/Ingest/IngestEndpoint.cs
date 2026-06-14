@@ -4,15 +4,15 @@ using HookSentry.Api.Common.Endpoints;
 using HookSentry.Api.Common.Extensions;
 using HookSentry.Api.Common.Validation;
 using HookSentry.Api.DataTransfer.Events.Responses;
+using HookSentry.Domain;
 using HookSentry.Domain.Common;
 using HookSentry.Domain.Destinations;
 using HookSentry.Domain.Events;
 using HookSentry.Domain.Senders;
 using HookSentry.Domain.Tenants;
 using HookSentry.Infrastructure.Destinations;
+using HookSentry.Infrastructure.Events;
 using HookSentry.Infrastructure.RabbitMq;
-using NHibernate.Linq;
-using StackExchange.Redis;
 
 namespace HookSentry.Api.Features.Ingest;
 
@@ -75,9 +75,13 @@ public class IngestEndpoint : IEndpoint
         [Microsoft.AspNetCore.Mvc.FromBody] JsonElement payload,
         ClaimsPrincipal user,
         HttpRequest httpRequest,
-        NHibernate.ISession session,
+        IDestinationUrlRepository destinationRepository,
+        IWebhookSenderRepository senderRepository,
+        IEventRepository eventRepository,
+        ITenantRepository tenantRepository,
+        IUnitOfWorkFactory uowFactory,
         IEventPublisher publisher,
-        IConnectionMultiplexer redis,
+        IEventIdempotencyStore idempotencyStore,
         IDestinationCacheService destinationCache,
         CancellationToken ct)
     {
@@ -91,21 +95,16 @@ public class IngestEndpoint : IEndpoint
         if (idempotencyKey is not null)
         {
             Event? existing = null;
-
             try
             {
-                var cached = await redis.GetDatabase()
-                    .StringGetAsync($"idempotency:{tenantId}:{idempotencyKey}");
-
-                if (cached.HasValue && Guid.TryParse(cached.ToString(), out var cachedId))
-                    existing = await session.GetAsync<Event>(cachedId, ct);
+                var cachedId = await idempotencyStore.FindEventIdAsync(tenantId, idempotencyKey, ct);
+                if (cachedId.HasValue)
+                    existing = await eventRepository.FindAsync(cachedId.Value, ct);
             }
             catch
             {
                 // Redis unavailable — fall back to DB
-                existing = await session.Query<Event>()
-                    .Where(e => e.TenantId == tenantId && e.IdempotencyKey == idempotencyKey)
-                    .SingleOrDefaultAsync(ct);
+                existing = await eventRepository.FindByIdempotencyKeyAsync(tenantId, idempotencyKey, ct);
             }
 
             if (existing is not null)
@@ -113,23 +112,32 @@ public class IngestEndpoint : IEndpoint
         }
 
         if (token.StartsWith(IngestToken.DestinationPrefix, StringComparison.Ordinal))
-            return await HandleDestinationToken(token, payload, tenantId, idempotencyKey, session, publisher, redis, destinationCache, ct);
+            return await HandleDestinationToken(
+                token, payload, tenantId, idempotencyKey,
+                destinationRepository, eventRepository, tenantRepository, uowFactory,
+                publisher, idempotencyStore, destinationCache, ct);
 
         if (token.StartsWith(IngestToken.SenderPrefix, StringComparison.Ordinal))
-            return await HandleSenderToken(token, payload, tenantId, idempotencyKey, session, publisher, redis, destinationCache, ct);
+            return await HandleSenderToken(
+                token, payload, tenantId, idempotencyKey,
+                destinationRepository, senderRepository, eventRepository, tenantRepository, uowFactory,
+                publisher, idempotencyStore, destinationCache, ct);
 
         return Results.BadRequest("Token inválido: prefixo não reconhecido.");
     }
 
     private static async Task<IResult> HandleDestinationToken(
         string token, JsonElement payload, Guid tenantId, string? idempotencyKey,
-        NHibernate.ISession session, IEventPublisher publisher, IConnectionMultiplexer redis,
+        IDestinationUrlRepository destinationRepository,
+        IEventRepository eventRepository,
+        ITenantRepository tenantRepository,
+        IUnitOfWorkFactory uowFactory,
+        IEventPublisher publisher,
+        IEventIdempotencyStore idempotencyStore,
         IDestinationCacheService destinationCache, CancellationToken ct)
     {
         var tokenHash = IngestToken.Hash(token);
-        var destination = await session.Query<DestinationUrl>()
-            .Where(d => d.IngestTokenHash == tokenHash)
-            .SingleOrDefaultAsync(ct);
+        var destination = await destinationRepository.FindByIngestTokenHashAsync(tokenHash, ct);
 
         if (destination is null) return Results.NotFound("Ingest token não encontrado.");
         if (destination.TenantId != tenantId) return Results.Forbid();
@@ -141,18 +149,22 @@ public class IngestEndpoint : IEndpoint
         return await CreateAndPublishEvent(
             tenantId, destination.Id, destination.Url, destination.ServerRateLimit,
             destination.AuthType, destination.CredentialsEncrypted, payload.GetRawText(),
-            idempotencyKey, session, publisher, redis, ct);
+            idempotencyKey, eventRepository, tenantRepository, uowFactory, publisher, idempotencyStore, ct);
     }
 
     private static async Task<IResult> HandleSenderToken(
         string token, JsonElement payload, Guid tenantId, string? idempotencyKey,
-        NHibernate.ISession session, IEventPublisher publisher, IConnectionMultiplexer redis,
+        IDestinationUrlRepository destinationRepository,
+        IWebhookSenderRepository senderRepository,
+        IEventRepository eventRepository,
+        ITenantRepository tenantRepository,
+        IUnitOfWorkFactory uowFactory,
+        IEventPublisher publisher,
+        IEventIdempotencyStore idempotencyStore,
         IDestinationCacheService destinationCache, CancellationToken ct)
     {
         var tokenHash = IngestToken.Hash(token);
-        var sender = await session.Query<WebhookSender>()
-            .Where(s => s.IngestTokenHash == tokenHash)
-            .SingleOrDefaultAsync(ct);
+        var sender = await senderRepository.FindByIngestTokenHashAsync(tokenHash, ct);
 
         if (sender is null) return Results.NotFound("Ingest token não encontrado.");
         if (sender.TenantId != tenantId) return Results.Forbid();
@@ -174,10 +186,10 @@ public class IngestEndpoint : IEndpoint
             return await CreateAndPublishEvent(
                 tenantId, sender.DestinationId, entry.Url, entry.ServerRateLimit,
                 entry.AuthType, entry.CredentialsEncrypted, payloadJson,
-                idempotencyKey, session, publisher, redis, ct);
+                idempotencyKey, eventRepository, tenantRepository, uowFactory, publisher, idempotencyStore, ct);
         }
 
-        var destination = await session.GetAsync<DestinationUrl>(sender.DestinationId, ct);
+        var destination = await destinationRepository.FindAsync(sender.DestinationId, ct);
         if (destination is null || !destination.IsActive())
             return Results.UnprocessableEntity($"Destination '{sender.DestinationId}' is not active.");
 
@@ -192,16 +204,20 @@ public class IngestEndpoint : IEndpoint
         return await CreateAndPublishEvent(
             tenantId, destination.Id, destination.Url, destination.ServerRateLimit,
             destination.AuthType, destination.CredentialsEncrypted, payloadJson,
-            idempotencyKey, session, publisher, redis, ct);
+            idempotencyKey, eventRepository, tenantRepository, uowFactory, publisher, idempotencyStore, ct);
     }
 
     private static async Task<IResult> CreateAndPublishEvent(
         Guid tenantId, Guid destinationId, string destinationUrl,
         int serverRateLimit, DestinationAuthType? authType, string? credentialsEncrypted,
         string payloadJson, string? idempotencyKey,
-        NHibernate.ISession session, IEventPublisher publisher, IConnectionMultiplexer redis, CancellationToken ct)
+        IEventRepository eventRepository,
+        ITenantRepository tenantRepository,
+        IUnitOfWorkFactory uowFactory,
+        IEventPublisher publisher,
+        IEventIdempotencyStore idempotencyStore, CancellationToken ct)
     {
-        var tenant = await session.GetAsync<Tenant>(tenantId, ct);
+        var tenant = await tenantRepository.FindAsync(tenantId, ct);
         if (tenant is null)
             return Results.NotFound($"Tenant '{tenantId}' not found.");
 
@@ -215,19 +231,13 @@ public class IngestEndpoint : IEndpoint
             return Results.BadRequest(ex.Message);
         }
 
-        using var tx = session.BeginTransaction();
-        await session.SaveAsync(evento, ct);
-        await tx.CommitAsync(ct);
+        await using var uow = uowFactory.Create();
+        await eventRepository.AddAsync(evento, ct);
+        await uow.CommitAsync(ct);
 
         if (idempotencyKey is not null)
         {
-            try
-            {
-                await redis.GetDatabase().StringSetAsync(
-                    $"idempotency:{tenantId}:{idempotencyKey}",
-                    evento.Id.ToString(),
-                    TimeSpan.FromHours(24));
-            }
+            try { await idempotencyStore.StoreAsync(tenantId, idempotencyKey, evento.Id, ct); }
             catch { /* Redis unavailable — idempotency degrades to DB-only on next request */ }
         }
 

@@ -50,12 +50,12 @@ public class GetInvitesEndpoint : IEndpoint
     private static async Task<IResult> Handle(
         [AsParameters] GetInvitesRequest request,
         ClaimsPrincipal principal,
-        NHibernate.ISession session,
+        IInviteTokenRepository inviteRepository,
         CancellationToken ct)
     {
         if (principal.RequireAdminRole(out var tenantId) is { } err) return err;
 
-        var baseQuery = session.Query<InviteToken>().Where(t => t.TenantId == tenantId);
+        var baseQuery = inviteRepository.Query().Where(t => t.TenantId == tenantId);
 
         if (request.Status.HasValue)
             baseQuery = baseQuery.Where(t => t.Status == request.Status.Value);

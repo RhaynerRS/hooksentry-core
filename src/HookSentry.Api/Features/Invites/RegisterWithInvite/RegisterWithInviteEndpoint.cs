@@ -1,11 +1,11 @@
 using HookSentry.Api.Common.Endpoints;
 using HookSentry.Api.Common.Validation;
-using HookSentry.Infrastructure.Security;
+using HookSentry.Domain;
+using HookSentry.Domain.Security;
 using HookSentry.Api.DataTransfer.Invites.Requests;
 using HookSentry.Api.DataTransfer.Users.Responses;
 using HookSentry.Domain.Invites;
 using HookSentry.Domain.Users;
-using NHibernate.Linq;
 
 namespace HookSentry.Api.Features.Invites.RegisterWithInvite;
 
@@ -47,11 +47,12 @@ public class RegisterWithInviteEndpoint : IEndpoint
         string token,
         RegisterWithInviteRequest request,
         IPasswordHasher passwordHasher,
-        NHibernate.ISession session,
+        IInviteTokenRepository inviteRepository,
+        IUserRepository userRepository,
+        IUnitOfWorkFactory uowFactory,
         CancellationToken ct)
     {
-        var invite = await session.Query<InviteToken>()
-            .FirstOrDefaultAsync(t => t.Token == token, ct);
+        var invite = await inviteRepository.FindByTokenAsync(token, ct);
 
         if (invite is null)
             return Results.NotFound("Token de convite não encontrado.");
@@ -61,17 +62,14 @@ public class RegisterWithInviteEndpoint : IEndpoint
 
         var normalizedEmail = request.Email.Trim().ToLowerInvariant();
 
-        var emailExists = await session.Query<User>()
-            .AnyAsync(u => u.Email == normalizedEmail, ct);
-
-        if (emailExists)
+        if (await userRepository.EmailExistsAsync(normalizedEmail, ct))
             return Results.Conflict($"E-mail '{request.Email}' já está em uso.");
 
         string passwordHash;
         try { passwordHash = passwordHasher.Hash(request.Password); }
         catch (ArgumentException ex) { return Results.BadRequest(ex.Message); }
 
-        using var tx = session.BeginTransaction();
+        await using var uow = uowFactory.Create();
 
         try { invite.Use(); }
         catch (InvalidOperationException ex) { return Results.Conflict(ex.Message); }
@@ -80,8 +78,8 @@ public class RegisterWithInviteEndpoint : IEndpoint
         try { newUser = new User(invite.TenantId, request.Email, passwordHash, UserRole.Developer); }
         catch (ArgumentException ex) { return Results.BadRequest(ex.Message); }
 
-        await session.SaveAsync(newUser, ct);
-        await tx.CommitAsync(ct);
+        await userRepository.AddAsync(newUser, ct);
+        await uow.CommitAsync(ct);
 
         return Results.Created($"/api/v1/users/{newUser.Id}", UserResponse.From(newUser));
     }

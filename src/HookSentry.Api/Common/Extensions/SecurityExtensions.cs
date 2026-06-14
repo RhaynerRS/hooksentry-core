@@ -9,9 +9,9 @@ public static class SecurityExtensions
     public static IServiceCollection AddSecurity(this IServiceCollection services, IConfiguration configuration)
     {
         services.Configure<CredentialEncryptionSettings>(configuration.GetSection("CredentialEncryption"));
-        services.AddSingleton<IPasswordHasher, Argon2PasswordHasher>();
+        services.AddSingleton<HookSentry.Domain.Security.IPasswordHasher, Argon2PasswordHasher>();
         services.AddSingleton<IJwtTokenService, JwtTokenService>();
-        services.AddSingleton<ICredentialEncryptionService, AesCredentialEncryptionService>();
+        services.AddSingleton<HookSentry.Domain.Security.ICredentialEncryptionService, AesCredentialEncryptionService>();
         return services;
     }
 }

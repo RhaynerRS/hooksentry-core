@@ -2,6 +2,7 @@ using System.Security.Claims;
 using HookSentry.Api.Common.Endpoints;
 using HookSentry.Api.Common.Extensions;
 using HookSentry.Api.DataTransfer.Events.Responses;
+using HookSentry.Domain;
 using HookSentry.Domain.Destinations;
 using HookSentry.Domain.Events;
 using HookSentry.Domain.Tenants;
@@ -44,15 +45,18 @@ public class ReplayEventEndpoint : IEndpoint
     private static async Task<IResult> Handle(
         Guid id,
         ClaimsPrincipal user,
-        NHibernate.ISession session,
+        IEventRepository eventRepository,
+        IDestinationUrlRepository destinationRepository,
+        ITenantRepository tenantRepository,
+        IUnitOfWorkFactory uowFactory,
         IEventPublisher publisher,
         CancellationToken ct)
     {
         if (user.RequireTenantId(out var tenantId) is { } err) return err;
 
-        using var tx = session.BeginTransaction();
+        await using var uow = uowFactory.Create();
 
-        var evento = await session.GetAsync<Event>(id, ct);
+        var evento = await eventRepository.FindAsync(id, ct);
 
         if (evento is null)
             return Results.NotFound();
@@ -60,8 +64,8 @@ public class ReplayEventEndpoint : IEndpoint
         if (evento.TenantId != tenantId)
             return Results.Forbid();
 
-        var destination = await session.GetAsync<DestinationUrl>(evento.DestinationUrlId, ct);
-        var tenant = await session.GetAsync<Tenant>(evento.TenantId, ct);
+        var destination = await destinationRepository.FindAsync(evento.DestinationUrlId, ct);
+        var tenant = await tenantRepository.FindAsync(evento.TenantId, ct);
 
         if (destination is null || tenant is null)
             return Results.Problem("Dados do destino ou tenant não encontrados.");
@@ -69,7 +73,7 @@ public class ReplayEventEndpoint : IEndpoint
         try { evento.ResetForReplay(); }
         catch (InvalidOperationException ex) { return Results.BadRequest(ex.Message); }
 
-        await tx.CommitAsync(ct);
+        await uow.CommitAsync(ct);
 
         await publisher.PublishAsync(new EventMessage(
             EventId: evento.Id,

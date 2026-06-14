@@ -1,5 +1,6 @@
 using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
+using System.Security.Cryptography;
 using System.Text;
 using HookSentry.Domain.Users;
 using Microsoft.IdentityModel.Tokens;
@@ -35,5 +36,14 @@ public class JwtTokenService(IConfiguration configuration) : IJwtTokenService
             signingCredentials: credentials);
 
         return (new JwtSecurityTokenHandler().WriteToken(token), jti, expiresAt);
+    }
+
+    public string GenerateRefreshToken()
+    {
+        var bytes = RandomNumberGenerator.GetBytes(32);
+        return Convert.ToBase64String(bytes)
+            .Replace('+', '-')
+            .Replace('/', '_')
+            .TrimEnd('=');
     }
 }

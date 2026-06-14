@@ -43,12 +43,12 @@ public class GetEventsEndpoint : IEndpoint
     private static async Task<IResult> Handle(
         [AsParameters] GetEventsRequest request,
         ClaimsPrincipal user,
-        NHibernate.ISession session,
+        IEventRepository eventRepository,
         CancellationToken ct)
     {
         if (user.RequireTenantId(out var tenantId) is { } err) return err;
 
-        var baseQuery = session.Query<Event>().Where(e => e.TenantId == tenantId);
+        var baseQuery = eventRepository.Query().Where(e => e.TenantId == tenantId);
 
         if (request.Status is not null)
         {

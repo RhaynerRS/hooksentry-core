@@ -3,6 +3,7 @@ using HookSentry.Api.Common.Endpoints;
 using HookSentry.Api.Common.Extensions;
 using HookSentry.Api.DataTransfer.Invites.Requests;
 using HookSentry.Api.DataTransfer.Invites.Responses;
+using HookSentry.Domain;
 using HookSentry.Domain.Invites;
 using HookSentry.Domain.Tenants;
 
@@ -43,12 +44,14 @@ public class CreateInviteEndpoint : IEndpoint
     private static async Task<IResult> Handle(
         CreateInviteRequest request,
         ClaimsPrincipal principal,
-        NHibernate.ISession session,
+        ITenantRepository tenantRepository,
+        IInviteTokenRepository inviteRepository,
+        IUnitOfWorkFactory uowFactory,
         CancellationToken ct)
     {
         if (principal.RequireAdminRole(out var tenantId) is { } err) return err;
 
-        var tenant = await session.GetAsync<Tenant>(tenantId, ct);
+        var tenant = await tenantRepository.FindAsync(tenantId, ct);
         if (tenant is null)
             return Results.NotFound($"Tenant '{tenantId}' not found.");
 
@@ -56,9 +59,9 @@ public class CreateInviteEndpoint : IEndpoint
         try { invite = new InviteToken(tenantId, request.ValidityDays); }
         catch (ArgumentOutOfRangeException ex) { return Results.BadRequest(ex.Message); }
 
-        using var tx = session.BeginTransaction();
-        await session.SaveAsync(invite, ct);
-        await tx.CommitAsync(ct);
+        await using var uow = uowFactory.Create();
+        await inviteRepository.AddAsync(invite, ct);
+        await uow.CommitAsync(ct);
 
         return Results.Created($"/api/v1/invites/{invite.Id}", InviteTokenResponse.From(invite));
     }

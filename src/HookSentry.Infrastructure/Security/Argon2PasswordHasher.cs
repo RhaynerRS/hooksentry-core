@@ -2,6 +2,8 @@ using Konscious.Security.Cryptography;
 using System.Security.Cryptography;
 using System.Text;
 
+using HookSentry.Domain.Security;
+
 namespace HookSentry.Infrastructure.Security;
 
 public class Argon2PasswordHasher : IPasswordHasher

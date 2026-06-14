@@ -41,13 +41,12 @@ public class GetDestinationsEndpoint : IEndpoint
     private static async Task<IResult> Handle(
         [AsParameters] GetDestinationsRequest request,
         ClaimsPrincipal user,
-        NHibernate.ISession session,
+        IDestinationUrlRepository destinationRepository,
         CancellationToken ct)
     {
         if (user.RequireTenantId(out var tenantId) is { } err) return err;
 
-        var baseQuery = session.Query<DestinationUrl>()
-            .Where(d => d.TenantId == tenantId);
+        var baseQuery = destinationRepository.Query().Where(d => d.TenantId == tenantId);
 
         var total = await baseQuery.CountAsync(ct);
 
@@ -87,4 +86,3 @@ public class GetDestinationsEndpoint : IEndpoint
             : query.OrderByDescending(keySelector);
     }
 }
-

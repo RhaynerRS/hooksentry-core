@@ -2,6 +2,7 @@ using System.Security.Claims;
 using HookSentry.Api.Common.Endpoints;
 using HookSentry.Api.Common.Extensions;
 using HookSentry.Api.DataTransfer.Destinations.Responses;
+using HookSentry.Domain;
 using HookSentry.Domain.Destinations;
 using HookSentry.Infrastructure.Destinations;
 
@@ -40,21 +41,22 @@ public class RegenerateIngestTokenEndpoint : IEndpoint
     private static async Task<IResult> Handle(
         Guid id,
         ClaimsPrincipal user,
-        NHibernate.ISession session,
+        IDestinationUrlRepository destinationRepository,
+        IUnitOfWorkFactory uowFactory,
         IDestinationCacheService destinationCache,
         CancellationToken ct)
     {
         if (user.RequireTenantId(out var tenantId) is { } err) return err;
 
-        using var tx = session.BeginTransaction();
+        await using var uow = uowFactory.Create();
 
-        var destination = await session.GetAsync<DestinationUrl>(id, ct);
+        var destination = await destinationRepository.FindAsync(id, ct);
         if (destination is null) return Results.NotFound();
         if (destination.TenantId != tenantId) return Results.Forbid();
 
         var rawToken = destination.RotateIngestToken();
 
-        await tx.CommitAsync(ct);
+        await uow.CommitAsync(ct);
 
         await destinationCache.RemoveAsync(destination.Id, ct);
 

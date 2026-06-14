@@ -47,12 +47,12 @@ public class GetUsersEndpoint : IEndpoint
     private static async Task<IResult> Handle(
         [AsParameters] GetUsersRequest request,
         ClaimsPrincipal principal,
-        NHibernate.ISession session,
+        IUserRepository userRepository,
         CancellationToken ct)
     {
         if (principal.RequireTenantId(out var tenantId) is { } err) return err;
 
-        var query = session.Query<User>().Where(u => u.TenantId == tenantId);
+        var query = userRepository.Query().Where(u => u.TenantId == tenantId);
 
         if (request.Status.HasValue)
             query = query.Where(u => u.Status == request.Status.Value);

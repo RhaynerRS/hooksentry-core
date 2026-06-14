@@ -4,6 +4,7 @@ using HookSentry.Api.Common.Extensions;
 using HookSentry.Api.Common.Validation;
 using HookSentry.Api.DataTransfer.ApiKeys.Requests;
 using HookSentry.Api.DataTransfer.ApiKeys.Responses;
+using HookSentry.Domain;
 using HookSentry.Domain.ApiKeys;
 using HookSentry.Infrastructure.ApiKeys;
 
@@ -42,7 +43,8 @@ public class CreateApiKeyEndpoint : IEndpoint
     private static async Task<IResult> Handle(
         CreateApiKeyRequest request,
         ClaimsPrincipal user,
-        NHibernate.ISession session,
+        IApiKeyRepository apiKeyRepository,
+        IUnitOfWorkFactory uowFactory,
         IApiKeyCacheService cache,
         CancellationToken ct)
     {
@@ -55,9 +57,9 @@ public class CreateApiKeyEndpoint : IEndpoint
         try { apiKey = new ApiKey(tenantId, request.Name); }
         catch (ArgumentException ex) { return Results.BadRequest(ex.Message); }
 
-        using var tx = session.BeginTransaction();
-        await session.SaveAsync(apiKey, ct);
-        await tx.CommitAsync(ct);
+        await using var uow = uowFactory.Create();
+        await apiKeyRepository.AddAsync(apiKey, ct);
+        await uow.CommitAsync(ct);
 
         await cache.SetAsync(apiKey.KeyHash, new ApiKeyCacheEntry(tenantId), ct);
 

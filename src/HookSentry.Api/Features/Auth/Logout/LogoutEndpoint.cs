@@ -1,9 +1,8 @@
 using System.Security.Claims;
 using HookSentry.Api.Common.Endpoints;
-using HookSentry.Api.Common.Extensions;
 using HookSentry.Api.Common.Validation;
+using HookSentry.Infrastructure.Auth;
 using HookSentry.Api.DataTransfer.Auth.Requests;
-using StackExchange.Redis;
 
 namespace HookSentry.Api.Features.Auth.Logout;
 
@@ -36,7 +35,7 @@ public class LogoutEndpoint : IEndpoint
     private static async Task<IResult> Handle(
         LogoutRequest request,
         ClaimsPrincipal user,
-        IConnectionMultiplexer redis,
+        IRefreshTokenStore tokenStore,
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.RefreshToken))
@@ -48,18 +47,14 @@ public class LogoutEndpoint : IEndpoint
                            ?? user.FindFirst("sub")?.Value, out var userId))
             return Results.Unauthorized();
 
-        var db = redis.GetDatabase();
-        var key = $"{AuthExtensions.RefreshKeyPrefix}{request.RefreshToken}";
-        var value = await db.StringGetAsync(key);
-
-        if (!value.HasValue)
+        var stored = await tokenStore.GetAsync(request.RefreshToken);
+        if (stored is null)
             return Results.Unauthorized();
 
-        var parts = ((string)value!).Split('|');
-        if (parts.Length < 1 || !Guid.TryParse(parts[0], out var tokenOwner) || tokenOwner != userId)
+        if (stored.Value.UserId != userId)
             return Results.Unauthorized();
 
-        await db.KeyDeleteAsync(key);
+        await tokenStore.RemoveAsync(request.RefreshToken);
         return Results.NoContent();
     }
 }

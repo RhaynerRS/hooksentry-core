@@ -43,12 +43,12 @@ public class GetApiKeysEndpoint : IEndpoint
     private static async Task<IResult> Handle(
         [AsParameters] GetApiKeysRequest request,
         ClaimsPrincipal user,
-        NHibernate.ISession session,
+        IApiKeyRepository apiKeyRepository,
         CancellationToken ct)
     {
         if (user.RequireTenantId(out var tenantId) is { } authErr) return authErr;
 
-        var baseQuery = session.Query<ApiKey>().Where(k => k.TenantId == tenantId);
+        var baseQuery = apiKeyRepository.Query().Where(k => k.TenantId == tenantId);
 
         if (request.IsActive.HasValue)
             baseQuery = baseQuery.Where(k => k.IsActive == request.IsActive.Value);

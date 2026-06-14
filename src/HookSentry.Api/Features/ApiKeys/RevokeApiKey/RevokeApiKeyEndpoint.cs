@@ -2,6 +2,7 @@ using System.Security.Claims;
 using HookSentry.Api.Common.Endpoints;
 using HookSentry.Api.Common.Extensions;
 using HookSentry.Api.DataTransfer.ApiKeys.Responses;
+using HookSentry.Domain;
 using HookSentry.Domain.ApiKeys;
 using HookSentry.Infrastructure.ApiKeys;
 
@@ -38,14 +39,15 @@ public class RevokeApiKeyEndpoint : IEndpoint
     private static async Task<IResult> Handle(
         Guid id,
         ClaimsPrincipal user,
-        NHibernate.ISession session,
+        IApiKeyRepository apiKeyRepository,
+        IUnitOfWorkFactory uowFactory,
         IApiKeyCacheService cache,
         CancellationToken ct)
     {
         if (user.RequireTenantId(out var tenantId) is { } authErr) return authErr;
 
-        using var tx = session.BeginTransaction();
-        var apiKey = await session.GetAsync<ApiKey>(id, ct);
+        await using var uow = uowFactory.Create();
+        var apiKey = await apiKeyRepository.FindAsync(id, ct);
 
         if (apiKey is null || !apiKey.IsActive) return Results.NotFound();
         if (apiKey.TenantId != tenantId) return Results.Forbid();
@@ -53,7 +55,7 @@ public class RevokeApiKeyEndpoint : IEndpoint
         try { apiKey.Revoke(); }
         catch (InvalidOperationException) { return Results.NotFound(); }
 
-        await tx.CommitAsync(ct);
+        await uow.CommitAsync(ct);
         await cache.RemoveAsync(apiKey.KeyHash, ct);
 
         return Results.Ok(ApiKeyResponse.From(apiKey));

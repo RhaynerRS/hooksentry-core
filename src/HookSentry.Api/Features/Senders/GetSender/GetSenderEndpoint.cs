@@ -36,12 +36,12 @@ public class GetSenderEndpoint : IEndpoint
     private static async Task<IResult> Handle(
         Guid id,
         ClaimsPrincipal user,
-        NHibernate.ISession session,
+        IWebhookSenderRepository senderRepository,
         CancellationToken ct)
     {
         if (user.RequireTenantId(out var tenantId) is { } err) return err;
 
-        var sender = await session.GetAsync<WebhookSender>(id, ct);
+        var sender = await senderRepository.FindAsync(id, ct);
         if (sender is null) return Results.NotFound();
         if (sender.TenantId != tenantId) return Results.Forbid();
 

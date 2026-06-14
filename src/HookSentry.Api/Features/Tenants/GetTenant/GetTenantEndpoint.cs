@@ -1,7 +1,6 @@
 using HookSentry.Api.Common.Endpoints;
 using HookSentry.Api.DataTransfer.Tenants.Responses;
 using HookSentry.Domain.Tenants;
-using NHibernate;
 
 namespace HookSentry.Api.Features.Tenants.GetTenant;
 
@@ -31,10 +30,10 @@ public class GetTenantEndpoint : IEndpoint
 
     private static async Task<IResult> Handle(
         Guid id,
-        NHibernate.ISession session,
+        ITenantRepository tenantRepository,
         CancellationToken ct)
     {
-        var tenant = await session.GetAsync<Tenant>(id, ct);
+        var tenant = await tenantRepository.FindAsync(id, ct);
 
         return tenant is null
             ? Results.NotFound()
@@ -47,4 +46,3 @@ public class GetTenantEndpoint : IEndpoint
                 tenant.UpdatedAt));
     }
 }
-

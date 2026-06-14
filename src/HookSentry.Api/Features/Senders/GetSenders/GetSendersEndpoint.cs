@@ -51,17 +51,17 @@ public class GetSendersEndpoint : IEndpoint
         Guid destinationId,
         [AsParameters] GetSendersRequest request,
         ClaimsPrincipal user,
-        NHibernate.ISession session,
+        IDestinationUrlRepository destinationRepository,
+        IWebhookSenderRepository senderRepository,
         CancellationToken ct)
     {
         if (user.RequireTenantId(out var tenantId) is { } err) return err;
 
-        var destination = await session.GetAsync<DestinationUrl>(destinationId, ct);
+        var destination = await destinationRepository.FindAsync(destinationId, ct);
         if (destination is null) return Results.NotFound($"Destination '{destinationId}' not found.");
         if (destination.TenantId != tenantId) return Results.Forbid();
 
-        var baseQuery = session.Query<WebhookSender>()
-            .Where(s => s.DestinationId == destinationId);
+        var baseQuery = senderRepository.Query().Where(s => s.DestinationId == destinationId);
 
         var total = await baseQuery.CountAsync(ct);
 

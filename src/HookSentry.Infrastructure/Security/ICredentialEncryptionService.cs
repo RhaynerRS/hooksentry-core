@@ -1,7 +1,4 @@
 namespace HookSentry.Infrastructure.Security;
 
-public interface ICredentialEncryptionService
-{
-    string Encrypt(string plaintext);
-    string Decrypt(string encryptedBase64);
-}
+// Interface moved to HookSentry.Domain.Security — kept as forwarding alias for binary compatibility
+public interface ICredentialEncryptionService : HookSentry.Domain.Security.ICredentialEncryptionService { }

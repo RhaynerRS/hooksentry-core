@@ -12,7 +12,7 @@ builder.Services.AddRabbitMq(builder.Configuration);
 builder.Services.AddObservability(builder.Configuration);
 builder.Services.Configure<CredentialEncryptionSettings>(
     builder.Configuration.GetSection("CredentialEncryption"));
-builder.Services.AddSingleton<ICredentialEncryptionService, AesCredentialEncryptionService>();
+builder.Services.AddSingleton<HookSentry.Domain.Security.ICredentialEncryptionService, AesCredentialEncryptionService>();
 builder.Services.AddHostedService<WebhookDeliveryConsumer>();
 
 var host = builder.Build();

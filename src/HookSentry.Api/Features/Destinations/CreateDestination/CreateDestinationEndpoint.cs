@@ -1,7 +1,8 @@
 using System.Security.Claims;
 using HookSentry.Api.Common.Endpoints;
 using HookSentry.Api.Common.Extensions;
-using HookSentry.Infrastructure.Security;
+using HookSentry.Domain;
+using HookSentry.Domain.Security;
 using HookSentry.Api.DataTransfer.Destinations.Requests;
 using HookSentry.Api.DataTransfer.Destinations.Responses;
 using HookSentry.Domain.Destinations;
@@ -53,13 +54,15 @@ public class CreateDestinationEndpoint : IEndpoint
     private static async Task<IResult> Handle(
         CreateDestinationRequest request,
         ClaimsPrincipal user,
-        NHibernate.ISession session,
+        ITenantRepository tenantRepository,
+        IDestinationUrlRepository destinationRepository,
+        IUnitOfWorkFactory uowFactory,
         ICredentialEncryptionService encryption,
         CancellationToken ct)
     {
         if (user.RequireTenantId(out var tenantId) is { } err) return err;
 
-        var tenant = await session.GetAsync<Tenant>(tenantId, ct);
+        var tenant = await tenantRepository.FindAsync(tenantId, ct);
         if (tenant is null)
             return Results.NotFound($"Tenant '{tenantId}' not found.");
 
@@ -99,9 +102,9 @@ public class CreateDestinationEndpoint : IEndpoint
             return Results.BadRequest(ex.Message);
         }
 
-        using var tx = session.BeginTransaction();
-        await session.SaveAsync(destination, ct);
-        await tx.CommitAsync(ct);
+        await using var uow = uowFactory.Create();
+        await destinationRepository.AddAsync(destination, ct);
+        await uow.CommitAsync(ct);
 
         return Results.Created(
             $"/api/v1/destinations/{destination.Id}",

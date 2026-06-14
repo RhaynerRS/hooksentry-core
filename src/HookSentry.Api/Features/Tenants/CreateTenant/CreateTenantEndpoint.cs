@@ -1,11 +1,11 @@
 using HookSentry.Api.Common.Endpoints;
 using HookSentry.Api.Common.Validation;
-using HookSentry.Infrastructure.Security;
+using HookSentry.Domain;
+using HookSentry.Domain.Security;
 using HookSentry.Api.DataTransfer.Tenants.Requests;
 using HookSentry.Api.DataTransfer.Tenants.Responses;
 using HookSentry.Domain.Tenants;
 using HookSentry.Domain.Users;
-using NHibernate.Linq;
 
 namespace HookSentry.Api.Features.Tenants.CreateTenant;
 
@@ -44,7 +44,9 @@ public class CreateTenantEndpoint : IEndpoint
     private static async Task<IResult> Handle(
         CreateTenantRequest request,
         IPasswordHasher passwordHasher,
-        NHibernate.ISession session,
+        ITenantRepository tenantRepository,
+        IUserRepository userRepository,
+        IUnitOfWorkFactory uowFactory,
         CancellationToken ct)
     {
         if (InputSanitizer.ValidateName(request.Name) is { } nameErr)
@@ -52,18 +54,12 @@ public class CreateTenantEndpoint : IEndpoint
         if (InputSanitizer.ValidateEmail(request.AdminEmail) is { } emailErr)
             return Results.BadRequest(emailErr);
 
-        var nameExists = await session.Query<Tenant>()
-            .AnyAsync(t => t.Name == request.Name, ct);
-
-        if (nameExists)
+        if (await tenantRepository.NameExistsAsync(request.Name, ct))
             return Results.Conflict($"Tenant '{request.Name}' already exists.");
 
         var normalizedEmail = request.AdminEmail.Trim().ToLowerInvariant();
 
-        var emailExists = await session.Query<User>()
-            .AnyAsync(u => u.Email == normalizedEmail, ct);
-
-        if (emailExists)
+        if (await userRepository.EmailExistsAsync(normalizedEmail, ct))
             return Results.Conflict($"E-mail '{request.AdminEmail}' já está em uso.");
 
         Tenant tenant;
@@ -78,10 +74,10 @@ public class CreateTenantEndpoint : IEndpoint
         try { admin = new User(tenant.Id, normalizedEmail, passwordHash, UserRole.Admin); }
         catch (ArgumentException ex) { return Results.BadRequest(ex.Message); }
 
-        using var tx = session.BeginTransaction();
-        await session.SaveAsync(tenant, ct);
-        await session.SaveAsync(admin, ct);
-        await tx.CommitAsync(ct);
+        await using var uow = uowFactory.Create();
+        await tenantRepository.AddAsync(tenant, ct);
+        await userRepository.AddAsync(admin, ct);
+        await uow.CommitAsync(ct);
 
         return Results.Created(
             $"/api/v1/tenants/{tenant.Id}",

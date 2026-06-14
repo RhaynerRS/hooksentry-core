@@ -1,14 +1,13 @@
-using System.Security.Cryptography;
+using System.Security.Claims;
 using HookSentry.Api.Common.Endpoints;
 using HookSentry.Api.Common.Extensions;
-using HookSentry.Api.Common.Validation;
-using HookSentry.Infrastructure.Security;
 using HookSentry.Api.Common.Services;
+using HookSentry.Api.Common.Validation;
+using HookSentry.Domain.Security;
+using HookSentry.Domain.Users;
+using HookSentry.Infrastructure.Auth;
 using HookSentry.Api.DataTransfer.Auth.Requests;
 using HookSentry.Api.DataTransfer.Auth.Responses;
-using HookSentry.Domain.Users;
-using NHibernate.Linq;
-using StackExchange.Redis;
 
 namespace HookSentry.Api.Features.Auth.Login;
 
@@ -41,10 +40,10 @@ public class LoginEndpoint : IEndpoint
 
     private static async Task<IResult> Handle(
         LoginRequest request,
-        NHibernate.ISession session,
+        IUserRepository userRepository,
         IJwtTokenService jwtTokenService,
         IPasswordHasher passwordHasher,
-        IConnectionMultiplexer redis,
+        IRefreshTokenStore tokenStore,
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.Email))
@@ -55,9 +54,7 @@ public class LoginEndpoint : IEndpoint
         if (InputSanitizer.ValidateEmail(request.Email) is { } emailErr)
             return Results.BadRequest(emailErr);
 
-        var user = await session.Query<User>()
-            .Where(u => u.Email == request.Email.Trim().ToLowerInvariant())
-            .SingleOrDefaultAsync(ct);
+        var user = await userRepository.FindByEmailAsync(request.Email.Trim().ToLowerInvariant(), ct);
 
         if (user is null || !passwordHasher.Verify(request.Password, user.PasswordHash))
             return Results.Unauthorized();
@@ -66,27 +63,14 @@ public class LoginEndpoint : IEndpoint
             return Results.Unauthorized();
 
         var (accessToken, _, expiresAt) = jwtTokenService.GenerateAccessToken(user);
-        var refreshToken = GenerateRefreshToken();
+        var refreshToken = jwtTokenService.GenerateRefreshToken();
 
-        var db = redis.GetDatabase();
-        await db.StringSetAsync(
-            $"{AuthExtensions.RefreshKeyPrefix}{refreshToken}",
-            $"{user.Id}|{user.TenantId}",
-            AuthExtensions.RefreshTokenTtl);
+        await tokenStore.StoreAsync(refreshToken, user.Id, user.TenantId);
 
         return Results.Ok(new AuthResponse(
             accessToken,
             (int)(expiresAt - DateTimeOffset.UtcNow).TotalSeconds,
             refreshToken,
             expiresAt));
-    }
-
-    private static string GenerateRefreshToken()
-    {
-        var bytes = RandomNumberGenerator.GetBytes(32);
-        return Convert.ToBase64String(bytes)
-            .Replace('+', '-')
-            .Replace('/', '_')
-            .TrimEnd('=');
     }
 }

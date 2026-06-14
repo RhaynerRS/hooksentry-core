@@ -2,6 +2,8 @@ using System.Security.Cryptography;
 using System.Text;
 using Microsoft.Extensions.Options;
 
+using HookSentry.Domain.Security;
+
 namespace HookSentry.Infrastructure.Security;
 
 public sealed class AesCredentialEncryptionService : ICredentialEncryptionService

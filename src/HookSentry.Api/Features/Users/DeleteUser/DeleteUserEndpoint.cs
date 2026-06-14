@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using HookSentry.Api.Common.Endpoints;
 using HookSentry.Api.Common.Extensions;
+using HookSentry.Domain;
 using HookSentry.Domain.Users;
 
 namespace HookSentry.Api.Features.Users.DeleteUser;
@@ -39,20 +40,21 @@ public class DeleteUserEndpoint : IEndpoint
     private static async Task<IResult> Handle(
         Guid id,
         ClaimsPrincipal principal,
-        NHibernate.ISession session,
+        IUserRepository userRepository,
+        IUnitOfWorkFactory uowFactory,
         CancellationToken ct)
     {
         if (principal.RequireAdminRole(out var tenantId) is { } err) return err;
 
-        using var tx = session.BeginTransaction();
+        await using var uow = uowFactory.Create();
 
-        var user = await session.GetAsync<User>(id, ct);
+        var user = await userRepository.FindAsync(id, ct);
 
         if (user is null) return Results.NotFound();
         if (user.TenantId != tenantId) return Results.Forbid();
 
-        await session.DeleteAsync(user, ct);
-        await tx.CommitAsync(ct);
+        await userRepository.RemoveAsync(user, ct);
+        await uow.CommitAsync(ct);
 
         return Results.NoContent();
     }

@@ -2,12 +2,12 @@ using System.Security.Claims;
 using HookSentry.Api.Common.Endpoints;
 using HookSentry.Api.Common.Extensions;
 using HookSentry.Api.Common.Validation;
-using HookSentry.Infrastructure.Security;
+using HookSentry.Domain;
+using HookSentry.Domain.Security;
 using HookSentry.Api.DataTransfer.Users.Requests;
 using HookSentry.Api.DataTransfer.Users.Responses;
 using HookSentry.Domain.Tenants;
 using HookSentry.Domain.Users;
-using NHibernate.Linq;
 
 namespace HookSentry.Api.Features.Users.CreateUser;
 
@@ -49,7 +49,9 @@ public class CreateUserEndpoint : IEndpoint
         CreateUserRequest request,
         ClaimsPrincipal principal,
         IPasswordHasher passwordHasher,
-        NHibernate.ISession session,
+        ITenantRepository tenantRepository,
+        IUserRepository userRepository,
+        IUnitOfWorkFactory uowFactory,
         CancellationToken ct)
     {
         if (principal.RequireTenantId(out var tenantId) is { } err) return err;
@@ -57,16 +59,13 @@ public class CreateUserEndpoint : IEndpoint
         if (InputSanitizer.ValidateEmail(request.Email) is { } emailErr)
             return Results.BadRequest(emailErr);
 
-        var tenant = await session.GetAsync<Tenant>(tenantId, ct);
+        var tenant = await tenantRepository.FindAsync(tenantId, ct);
         if (tenant is null)
             return Results.NotFound($"Tenant '{tenantId}' not found.");
 
         var normalizedEmail = request.Email.Trim().ToLowerInvariant();
 
-        var emailExists = await session.Query<User>()
-            .AnyAsync(u => u.Email == normalizedEmail, ct);
-
-        if (emailExists)
+        if (await userRepository.EmailExistsAsync(normalizedEmail, ct))
             return Results.Conflict($"E-mail '{request.Email}' já está em uso.");
 
         string passwordHash;
@@ -77,9 +76,9 @@ public class CreateUserEndpoint : IEndpoint
         try { newUser = new User(tenantId, request.Email, passwordHash, request.Role); }
         catch (ArgumentException ex) { return Results.BadRequest(ex.Message); }
 
-        using var tx = session.BeginTransaction();
-        await session.SaveAsync(newUser, ct);
-        await tx.CommitAsync(ct);
+        await using var uow = uowFactory.Create();
+        await userRepository.AddAsync(newUser, ct);
+        await uow.CommitAsync(ct);
 
         return Results.Created($"/api/v1/users/{newUser.Id}", UserResponse.From(newUser));
     }

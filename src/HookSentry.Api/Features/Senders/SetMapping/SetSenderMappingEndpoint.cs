@@ -3,6 +3,7 @@ using System.Text.Json;
 using HookSentry.Api.Common.Endpoints;
 using HookSentry.Api.Common.Extensions;
 using HookSentry.Api.DataTransfer.Senders.Responses;
+using HookSentry.Domain;
 using HookSentry.Domain.Senders;
 
 namespace HookSentry.Api.Features.Senders.SetMapping;
@@ -51,7 +52,8 @@ public class SetSenderMappingEndpoint : IEndpoint
         Guid id,
         [Microsoft.AspNetCore.Mvc.FromBody] JsonElement mappingBody,
         ClaimsPrincipal user,
-        NHibernate.ISession session,
+        IWebhookSenderRepository senderRepository,
+        IUnitOfWorkFactory uowFactory,
         CancellationToken ct)
     {
         if (user.RequireTenantId(out var tenantId) is { } err) return err;
@@ -59,9 +61,9 @@ public class SetSenderMappingEndpoint : IEndpoint
         if (mappingBody.ValueKind != JsonValueKind.Object)
             return Results.BadRequest("O mapeamento deve ser um objeto JSON.");
 
-        using var tx = session.BeginTransaction();
+        await using var uow = uowFactory.Create();
 
-        var sender = await session.GetAsync<WebhookSender>(id, ct);
+        var sender = await senderRepository.FindAsync(id, ct);
         if (sender is null) return Results.NotFound();
         if (sender.Mapping != null)
             return Results.BadRequest("O mapeamento já existe para este sender.");
@@ -69,7 +71,7 @@ public class SetSenderMappingEndpoint : IEndpoint
 
         sender.SetMapping(mappingBody.GetRawText());
 
-        await tx.CommitAsync(ct);
+        await uow.CommitAsync(ct);
 
         return Results.Ok(new SenderMappingResponse(mappingBody));
     }
