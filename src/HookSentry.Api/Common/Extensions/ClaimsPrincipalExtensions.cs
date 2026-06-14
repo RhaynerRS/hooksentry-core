@@ -22,4 +22,13 @@ public static class ClaimsPrincipalExtensions
             return Results.Forbid();
         return null;
     }
+
+    public static UserRole GetUserRole(this ClaimsPrincipal principal)
+    {
+       if(Enum.TryParse<UserRole>(principal.FindFirst("role")?.Value, ignoreCase: true, out var role))
+       {
+           return role;
+       }
+       throw new ArgumentException("Invalid user role");
+    }
 }

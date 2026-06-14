@@ -56,39 +56,41 @@ public class UpdateUserEndpoint : IEndpoint
         NHibernate.ISession session,
         CancellationToken ct)
     {
-        if (principal.RequireTenantId(out var tenantId) is { } err) return err;
-
-        using var tx = session.BeginTransaction();
-
-        var user = await session.GetAsync<User>(id, ct);
-
-        if (user is null) return Results.NotFound();
-        if (user.TenantId != tenantId) return Results.Forbid();
-
-        if (request.Email is not null)
         {
-            if (InputSanitizer.ValidateEmail(request.Email) is { } emailErr)
-                return Results.BadRequest(emailErr);
+            if (principal.RequireTenantId(out var tenantId) is { } err) return err;
 
-            var normalizedEmail = request.Email.Trim().ToLowerInvariant();
-            var emailTaken = await session.Query<User>()
-                .AnyAsync(u => u.Email == normalizedEmail && u.Id != id, ct);
+            using var tx = session.BeginTransaction();
 
-            if (emailTaken)
-                return Results.Conflict($"E-mail '{request.Email}' já está em uso.");
+            var user = await session.GetAsync<User>(id, ct);
+
+            if (user is null) return Results.NotFound();
+            if (user.TenantId != tenantId) return Results.Forbid();
+
+            if (request.Email is not null)
+            {
+                if (InputSanitizer.ValidateEmail(request.Email) is { } emailErr)
+                    return Results.BadRequest(emailErr);
+
+                var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+                var emailTaken = await session.Query<User>()
+                    .AnyAsync(u => u.Email == normalizedEmail && u.Id != id, ct);
+
+                if (emailTaken)
+                    return Results.Conflict($"E-mail '{request.Email}' já está em uso.");
+            }
+
+            try
+            {
+                if (request.Email is not null) user.SetEmail(request.Email);
+                if (request.Password is not null) user.SetPasswordHash(passwordHasher.Hash(request.Password));
+                if (request.Role is not null && principal.GetUserRole() == UserRole.Admin) user.SetRole(request.Role.Value);
+                if (request.Status == UserStatus.Active) user.Activate();
+                else if (request.Status == UserStatus.Inactive) user.Deactivate();
+            }
+            catch (ArgumentException ex) { return Results.BadRequest(ex.Message); }
+
+            await tx.CommitAsync(ct);
+            return Results.Ok(UserResponse.From(user));
         }
-
-        try
-        {
-            if (request.Email is not null) user.SetEmail(request.Email);
-            if (request.Password is not null) user.SetPasswordHash(passwordHasher.Hash(request.Password));
-            if (request.Role is not null) user.SetRole(request.Role.Value);
-            if (request.Status == UserStatus.Active) user.Activate();
-            else if (request.Status == UserStatus.Inactive) user.Deactivate();
-        }
-        catch (ArgumentException ex) { return Results.BadRequest(ex.Message); }
-
-        await tx.CommitAsync(ct);
-        return Results.Ok(UserResponse.From(user));
     }
 }

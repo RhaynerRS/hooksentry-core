@@ -64,7 +64,7 @@ public sealed class WebhookDeliveryConsumer(
             EventMessage? message = null;
             try
             {
-                message = JsonSerializer.Deserialize<EventMessage>(ea.Body.Span);
+               message = JsonSerializer.Deserialize<EventMessage>(ea.Body.Span);
 
                 if (message is null)
                 {
@@ -96,7 +96,7 @@ public sealed class WebhookDeliveryConsumer(
                     semaphore.Release();
                 }
 
-                if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden)
+                if (response.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden or HttpStatusCode.NotFound)
                 {
                     logger.LogWarning(
                         "Authentication failed ({StatusCode}) for event {EventId}. Removing from queue.",

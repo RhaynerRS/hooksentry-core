@@ -63,6 +63,8 @@ public class SetSenderMappingEndpoint : IEndpoint
 
         var sender = await session.GetAsync<WebhookSender>(id, ct);
         if (sender is null) return Results.NotFound();
+        if (sender.Mapping != null)
+            return Results.BadRequest("O mapeamento já existe para este sender.");
         if (sender.TenantId != tenantId) return Results.Forbid();
 
         sender.SetMapping(mappingBody.GetRawText());
