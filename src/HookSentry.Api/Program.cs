@@ -1,3 +1,4 @@
+using System.Text.Json.Serialization;
 using HookSentry.Api.Common.Endpoints;
 using HookSentry.Api.Common.Extensions;
 using HookSentry.Infrastructure.Observability;
@@ -6,6 +7,9 @@ using HookSentry.Infrastructure.RabbitMq;
 using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.ConfigureHttpJsonOptions(options =>
+    options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 builder.Services
     .AddEndpoints()

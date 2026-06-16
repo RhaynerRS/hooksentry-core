@@ -1,0 +1,794 @@
+{
+  "info": {
+    "name": "HookSentry API",
+    "description": "API de gerenciamento de webhooks e hooks de segurança.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://localhost:7001",
+      "type": "string"
+    },
+    {
+      "key": "accessToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refreshToken",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "tenantId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "apiKey",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{accessToken}}",
+        "type": "string"
+      }
+    ]
+  },
+  "item": [
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Verifica a saúde da API. Não requer autenticação."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set('accessToken', body.accessToken);",
+                  "    pm.collectionVariables.set('refreshToken', body.refreshToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"admin@example.com\",\n  \"password\": \"SenhaSegura123!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "login"]
+            },
+            "description": "Autentica um usuário e retorna access token (TTL 15min) e refresh token (TTL 7 dias). O script de teste salva os tokens automaticamente nas variáveis da collection."
+          },
+          "response": []
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set('accessToken', body.accessToken);",
+                  "    pm.collectionVariables.set('refreshToken', body.refreshToken);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/refresh",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "refresh"]
+            },
+            "description": "Troca um refresh token ativo por um novo par de tokens. O refresh token informado é consumido (single-use via Redis GETDEL)."
+          },
+          "response": []
+        },
+        {
+          "name": "Logout",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refreshToken}}\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "auth", "logout"]
+            },
+            "description": "Invalida o refresh token no Redis. O access token JWT permanece válido até expirar (15 min)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Tenants",
+      "item": [
+        {
+          "name": "Create Tenant",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    const body = pm.response.json();",
+                  "    pm.collectionVariables.set('tenantId', body.id);",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Minha Empresa\",\n  \"adminEmail\": \"admin@minhaempresa.com\",\n  \"adminPassword\": \"SenhaSegura123!\",\n  \"maxTrys\": 10,\n  \"circuitBreakerTimer\": 300\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tenants",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tenants"]
+            },
+            "description": "Cria um novo tenant e o primeiro usuário administrador. Gera automaticamente o webhookSecret. O ingestToken é retornado apenas nesta resposta."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Tenant by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/tenants/{{tenantId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "tenants", "{{tenantId}}"]
+            },
+            "description": "Retorna os dados do tenant pelo UUID. Não retorna webhookSecret."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Invites",
+      "item": [
+        {
+          "name": "Create Invite",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"validityDays\": 7\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invites",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "invites"]
+            },
+            "description": "Gera um link pré-assinado para cadastro no tenant. Requer role Admin. validityDays: 1–30 (padrão: 7)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Invites",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invites?Qt=10&Pg=1&CpOrd=id&TpOrd=Desc",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "invites"],
+              "query": [
+                { "key": "Qt", "value": "10", "description": "Itens por página (padrão: 10)" },
+                { "key": "Pg", "value": "1", "description": "Número da página, base 1 (padrão: 1)" },
+                { "key": "CpOrd", "value": "id", "description": "Campo de ordenação (padrão: id)" },
+                { "key": "TpOrd", "value": "Desc", "description": "Direção: Asc ou Desc (padrão: Desc)" },
+                { "key": "Status", "value": "", "description": "0=Pending, 1=Used", "disabled": true }
+              ]
+            },
+            "description": "Lista convites do tenant autenticado com paginação. Requer role Admin."
+          },
+          "response": []
+        },
+        {
+          "name": "Register with Invite",
+          "request": {
+            "auth": { "type": "noauth" },
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"novo@usuario.com\",\n  \"password\": \"SenhaSegura123!\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/invites/:token/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "invites", ":token", "register"],
+              "variable": [
+                { "key": "token", "value": "<token-do-convite>", "description": "Token gerado pelo admin ao criar o convite" }
+              ]
+            },
+            "description": "Registra um novo usuário Developer no tenant associado ao convite. Não requer autenticação."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Create User",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"dev@minhaempresa.com\",\n  \"password\": \"SenhaSegura123!\",\n  \"role\": 0\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users"]
+            },
+            "description": "Cria um novo usuário no tenant autenticado. role: 0=Developer (padrão), 1=Admin."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Users",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users?Qt=10&Pg=1&CpOrd=id&TpOrd=Desc",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users"],
+              "query": [
+                { "key": "Qt", "value": "10", "description": "Itens por página (padrão: 10)" },
+                { "key": "Pg", "value": "1", "description": "Número da página, base 1 (padrão: 1)" },
+                { "key": "CpOrd", "value": "id", "description": "Campo de ordenação (padrão: id)" },
+                { "key": "TpOrd", "value": "Desc", "description": "Direção: 0=Asc, 1=Desc (padrão: Desc)" },
+                { "key": "Status", "value": "", "description": "0=Active, 1=Inactive", "disabled": true },
+                { "key": "Role", "value": "", "description": "0=Developer, 1=Admin", "disabled": true }
+              ]
+            },
+            "description": "Lista usuários do tenant autenticado com paginação e filtros opcionais."
+          },
+          "response": []
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", ":id"],
+              "variable": [
+                { "key": "id", "value": "<uuid-do-usuario>", "description": "UUID do usuário" }
+              ]
+            },
+            "description": "Retorna os dados de um usuário pelo UUID. Deve pertencer ao tenant do token JWT."
+          },
+          "response": []
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"novo@email.com\",\n  \"password\": \"NovaSenha123!\",\n  \"role\": 0,\n  \"status\": 0\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", ":id"],
+              "variable": [
+                { "key": "id", "value": "<uuid-do-usuario>", "description": "UUID do usuário" }
+              ]
+            },
+            "description": "Atualiza parcialmente um usuário. Apenas campos enviados são alterados. role: 0=Developer, 1=Admin. status: 0=Active, 1=Inactive."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/users/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "users", ":id"],
+              "variable": [
+                { "key": "id", "value": "<uuid-do-usuario>", "description": "UUID do usuário" }
+              ]
+            },
+            "description": "Remove permanentemente um usuário. Operação irreversível. Requer role Admin."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Destinations",
+      "item": [
+        {
+          "name": "Create Destination",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"https://meu-servidor.com/webhook\",\n  \"serverRateLimit\": 5,\n  \"authType\": \"BearerToken\",\n  \"credentials\": {\n    \"token\": \"meu-token-secreto\"\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/destinations",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "destinations"]
+            },
+            "description": "Registra uma URL HTTPS de destino. O ingestToken retornado é exibido uma única vez. authType: ApiKey, BearerToken, JwtBearer, BasicAuth. Credenciais: ApiKey={headerName,value}, BearerToken={token}, JwtBearer={tokenEndpoint,clientId,clientSecret,scope}, BasicAuth={username,password}."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Destinations",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/destinations?Qt=10&Pg=1&CpOrd=id&TpOrd=Desc",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "destinations"],
+              "query": [
+                { "key": "Qt", "value": "10", "description": "Itens por página (padrão: 10)" },
+                { "key": "Pg", "value": "1", "description": "Número da página, base 1 (padrão: 1)" },
+                { "key": "CpOrd", "value": "id", "description": "Campo de ordenação (padrão: id)" },
+                { "key": "TpOrd", "value": "Desc", "description": "Direção: Asc ou Desc (padrão: Desc)" }
+              ]
+            },
+            "description": "Lista URLs de destino do tenant autenticado com paginação."
+          },
+          "response": []
+        },
+        {
+          "name": "Update Destination",
+          "request": {
+            "method": "PATCH",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"url\": \"https://novo-servidor.com/webhook\",\n  \"serverRateLimit\": 10,\n  \"status\": \"active\",\n  \"authType\": \"ApiKey\",\n  \"credentials\": {\n    \"headerName\": \"X-Api-Key\",\n    \"value\": \"novo-api-key\"\n  },\n  \"removeAuth\": false\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/destinations/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "destinations", ":id"],
+              "variable": [
+                { "key": "id", "value": "<uuid-da-destination>", "description": "UUID da URL de destino" }
+              ]
+            },
+            "description": "Atualiza parcialmente uma URL de destino. status: 'active' ou 'inactive'. Use removeAuth: true para remover autenticação."
+          },
+          "response": []
+        },
+        {
+          "name": "Regenerate Ingest Token",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/destinations/:id/ingest-token",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "destinations", ":id", "ingest-token"],
+              "variable": [
+                { "key": "id", "value": "<uuid-da-destination>", "description": "UUID da URL de destino" }
+              ]
+            },
+            "description": "Gera um novo ingest token para a URL de destino, invalidando o anterior. O token retornado é exibido uma única vez."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Senders",
+      "item": [
+        {
+          "name": "Create Sender",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"label\": \"GitHub Webhooks\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/destinations/:destinationId/senders",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "destinations", ":destinationId", "senders"],
+              "variable": [
+                { "key": "destinationId", "value": "<uuid-da-destination>", "description": "UUID da URL de destino" }
+              ]
+            },
+            "description": "Cria um sender vinculado a uma URL de destino. O ingestToken é retornado uma única vez. label é opcional (máx. 255 caracteres)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Senders",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/destinations/:destinationId/senders?Qt=10&Pg=1&CpOrd=id&TpOrd=Desc",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "destinations", ":destinationId", "senders"],
+              "variable": [
+                { "key": "destinationId", "value": "<uuid-da-destination>", "description": "UUID da URL de destino" }
+              ],
+              "query": [
+                { "key": "Qt", "value": "10", "description": "Itens por página (padrão: 10)" },
+                { "key": "Pg", "value": "1", "description": "Número da página, base 1 (padrão: 1)" },
+                { "key": "CpOrd", "value": "id", "description": "Campo de ordenação (padrão: id)" },
+                { "key": "TpOrd", "value": "Desc", "description": "Direção: Asc ou Desc (padrão: Desc)" }
+              ]
+            },
+            "description": "Lista senders de uma URL de destino com paginação."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Sender by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/senders/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "senders", ":id"],
+              "variable": [
+                { "key": "id", "value": "<uuid-do-sender>", "description": "UUID do sender" }
+              ]
+            },
+            "description": "Retorna os dados de um sender pertencente ao tenant autenticado."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Sender",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/senders/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "senders", ":id"],
+              "variable": [
+                { "key": "id", "value": "<uuid-do-sender>", "description": "UUID do sender" }
+              ]
+            },
+            "description": "Remove um sender. O ingest token associado é invalidado imediatamente."
+          },
+          "response": []
+        },
+        {
+          "name": "Regenerate Sender Ingest Token",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/senders/:id/ingest-token",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "senders", ":id", "ingest-token"],
+              "variable": [
+                { "key": "id", "value": "<uuid-do-sender>", "description": "UUID do sender" }
+              ]
+            },
+            "description": "Gera um novo ingest token para o sender, invalidando o anterior. O token é exibido uma única vez."
+          },
+          "response": []
+        },
+        {
+          "name": "Set Sender Mapping",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"eventId\": \"id\",\n  \"userName\": \"user:name\",\n  \"repoName\": \"repository:full_name\",\n  \"action\": \"action\",\n  \"tags\": [\"ref\", \"head_commit:id\"]\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/senders/:id/mapping",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "senders", ":id", "mapping"],
+              "variable": [
+                { "key": "id", "value": "<uuid-do-sender>", "description": "UUID do sender" }
+              ]
+            },
+            "description": "Cria ou substitui o mapeamento de payload. DSL: 'campo' (raiz), 'obj:campo' (aninhado), 'array[n]' (índice), 'a+b' (soma/concatenação), ['expr1','expr2'] (array)."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Sender Mapping",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/senders/:id/mapping",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "senders", ":id", "mapping"],
+              "variable": [
+                { "key": "id", "value": "<uuid-do-sender>", "description": "UUID do sender" }
+              ]
+            },
+            "description": "Consulta o mapeamento de payload configurado para o sender."
+          },
+          "response": []
+        },
+        {
+          "name": "Delete Sender Mapping",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/senders/:id/mapping",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "senders", ":id", "mapping"],
+              "variable": [
+                { "key": "id", "value": "<uuid-do-sender>", "description": "UUID do sender" }
+              ]
+            },
+            "description": "Remove o mapeamento de payload. Eventos subsequentes serão enfileirados com payload bruto."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "API Keys",
+      "item": [
+        {
+          "name": "Create API Key",
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Minha Chave de Produção\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/apikeys",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "apikeys"]
+            },
+            "description": "Cria uma nova API key. O valor em texto claro é retornado apenas nesta resposta. Use no header X-Api-Key para autenticar no endpoint de ingest."
+          },
+          "response": []
+        },
+        {
+          "name": "Get API Keys",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/apikeys?Qt=10&Pg=1&CpOrd=id&TpOrd=Desc",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "apikeys"],
+              "query": [
+                { "key": "Qt", "value": "10", "description": "Itens por página (padrão: 10)" },
+                { "key": "Pg", "value": "1", "description": "Número da página, base 1 (padrão: 1)" },
+                { "key": "CpOrd", "value": "id", "description": "Campo de ordenação (padrão: id)" },
+                { "key": "TpOrd", "value": "Desc", "description": "Direção: Asc ou Desc (padrão: Desc)" },
+                { "key": "IsActive", "value": "true", "description": "true=ativas, false=revogadas", "disabled": true }
+              ]
+            },
+            "description": "Lista API keys do tenant autenticado com paginação e filtro por status."
+          },
+          "response": []
+        },
+        {
+          "name": "Revoke API Key",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/apikeys/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "apikeys", ":id"],
+              "variable": [
+                { "key": "id", "value": "<uuid-da-apikey>", "description": "UUID da API key a revogar" }
+              ]
+            },
+            "description": "Revoga imediatamente a API key. A chave é invalidada no cache Redis e não poderá mais ser usada."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Events",
+      "item": [
+        {
+          "name": "Get Events",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/events?Qt=10&Pg=1&CpOrd=acceptedAt&TpOrd=Desc",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "events"],
+              "query": [
+                { "key": "Qt", "value": "10", "description": "Itens por página (padrão: 10)" },
+                { "key": "Pg", "value": "1", "description": "Número da página, base 1 (padrão: 1)" },
+                { "key": "CpOrd", "value": "acceptedAt", "description": "Campo de ordenação (padrão: acceptedAt)" },
+                { "key": "TpOrd", "value": "Desc", "description": "Direção: Asc ou Desc (padrão: Desc)" },
+                { "key": "Status", "value": "", "description": "Pending, Processing, Succeeded, Failed, WaitingRetry, CriticalFailure, Cancelled", "disabled": true },
+                { "key": "DestinationUrlId", "value": "", "description": "Filtra por UUID da URL de destino", "disabled": true },
+                { "key": "From", "value": "", "description": "Data/hora de início ISO 8601 (ex: 2024-01-01T00:00:00Z)", "disabled": true },
+                { "key": "To", "value": "", "description": "Data/hora de fim ISO 8601 (ex: 2024-12-31T23:59:59Z)", "disabled": true }
+              ]
+            },
+            "description": "Lista eventos do tenant autenticado com paginação e filtros."
+          },
+          "response": []
+        },
+        {
+          "name": "Get Event by ID",
+          "request": {
+            "method": "GET",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/events/:id",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "events", ":id"],
+              "variable": [
+                { "key": "id", "value": "<uuid-do-evento>", "description": "UUID do evento" }
+              ]
+            },
+            "description": "Retorna os detalhes de um evento pelo ID de rastreamento."
+          },
+          "response": []
+        },
+        {
+          "name": "Replay Event",
+          "request": {
+            "method": "POST",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/events/:id/replay",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "events", ":id", "replay"],
+              "variable": [
+                { "key": "id", "value": "<uuid-do-evento>", "description": "UUID do evento" }
+              ]
+            },
+            "description": "Reenvia manualmente um evento com status CriticalFailure. Zera currentRetryCount, define nextAttemptAt como now() e altera status para Pending."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Ingest",
+      "item": [
+        {
+          "name": "Ingest Event (Destination Token)",
+          "request": {
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                { "key": "key", "value": "X-Api-Key", "type": "string" },
+                { "key": "value", "value": "{{apiKey}}", "type": "string" },
+                { "key": "in", "value": "header", "type": "string" }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Idempotency-Key", "value": "", "description": "Chave de idempotência opcional (máx. 255 chars)", "disabled": true }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"evento\": \"push\",\n  \"repositorio\": \"minha-org/meu-repo\",\n  \"branch\": \"main\",\n  \"autor\": \"dev@example.com\"\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ingest/{{tenantId}}/dst_<token>",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "ingest", "{{tenantId}}", "dst_<token>"]
+            },
+            "description": "Ingere um evento via token de URL de destino (prefixo dst_). Payload entregue sem transformação. Requer X-Api-Key no header."
+          },
+          "response": []
+        },
+        {
+          "name": "Ingest Event (Sender Token)",
+          "request": {
+            "auth": {
+              "type": "apikey",
+              "apikey": [
+                { "key": "key", "value": "X-Api-Key", "type": "string" },
+                { "key": "value", "value": "{{apiKey}}", "type": "string" },
+                { "key": "in", "value": "header", "type": "string" }
+              ]
+            },
+            "method": "POST",
+            "header": [
+              { "key": "Content-Type", "value": "application/json" },
+              { "key": "X-Idempotency-Key", "value": "", "description": "Chave de idempotência opcional (máx. 255 chars)", "disabled": true }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"abc123\",\n  \"action\": \"opened\",\n  \"repository\": {\n    \"full_name\": \"minha-org/meu-repo\"\n  },\n  \"sender\": {\n    \"login\": \"octocat\"\n  }\n}",
+              "options": { "raw": { "language": "json" } }
+            },
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/ingest/{{tenantId}}/sndr_<token>",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "ingest", "{{tenantId}}", "sndr_<token>"]
+            },
+            "description": "Ingere um evento via token de sender (prefixo sndr_). Payload transformado pelo mapeamento configurado (se houver). Requer X-Api-Key no header."
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}
