@@ -16,6 +16,7 @@ public static class AuthExtensions
     {
         services.AddSingleton<IApiKeyCacheService, ApiKeyCacheService>();
         services.AddSingleton<IRefreshTokenStore, RedisRefreshTokenStore>();
+        services.AddSingleton<ILoginRateLimiter, RedisLoginRateLimiter>();
         services.AddSingleton<IEventIdempotencyStore, RedisEventIdempotencyStore>();
 
         services

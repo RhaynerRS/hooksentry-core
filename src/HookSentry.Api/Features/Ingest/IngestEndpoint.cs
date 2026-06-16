@@ -57,6 +57,7 @@ public class IngestEndpoint : IEndpoint
                 - `404 Not Found`: ingest token or tenant not found
                 - `422 Unprocessable Entity`: destination URL inactive or suspended
                 """)
+            .RequireCors(CorsExtensions.OpenPolicyName)
             .RequireAuthorization(policy => policy
                 .AddAuthenticationSchemes(AuthExtensions.ApiKeyScheme)
                 .RequireAuthenticatedUser())

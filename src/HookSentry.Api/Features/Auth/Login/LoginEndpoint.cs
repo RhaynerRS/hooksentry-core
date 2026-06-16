@@ -1,6 +1,4 @@
-using System.Security.Claims;
 using HookSentry.Api.Common.Endpoints;
-using HookSentry.Api.Common.Extensions;
 using HookSentry.Api.Common.Services;
 using HookSentry.Api.Common.Validation;
 using HookSentry.Domain.Security;
@@ -23,27 +21,38 @@ public class LoginEndpoint : IEndpoint
                 Authenticates an existing user and returns a JWT access token (TTL: 15 minutes) and a refresh token (TTL: 7 days).
                 The refresh token is stored in Redis. The JWT is stateless — validated only by signature and expiration.
 
+                **Rate limiting:** blocked after 10 failed attempts per IP or per email within a 5-minute window.
+                The counter resets automatically after the window expires, or immediately on a successful login.
+
                 **Body:**
                 - `email` *(required)*: user email
                 - `password` *(required)*: user password
 
                 **Return codes:**
                 - `200 OK`: authentication successful
-                - `400 Bad Request`: missing required fields
+                - `400 Bad Request`: missing required fields or invalid email format
                 - `401 Unauthorized`: invalid credentials or inactive user
+                - `429 Too Many Requests`: rate limit exceeded — too many failed attempts from this IP or for this email
                 """)
             .AllowAnonymous()
             .Produces<AuthResponse>()
             .Produces<string>(StatusCodes.Status400BadRequest)
-            .Produces(StatusCodes.Status401Unauthorized);
+            .Produces(StatusCodes.Status401Unauthorized)
+            .Produces<string>(StatusCodes.Status429TooManyRequests);
     }
+
+    // Dummy hash used to equalize response time when the email is not found,
+    // preventing timing-based user enumeration. Format: base64(16-byte salt):base64(32-byte hash).
+    private const string DummyHash = "AAAAAAAAAAAAAAAAAAAAAA==:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
 
     private static async Task<IResult> Handle(
         LoginRequest request,
+        HttpContext httpContext,
         IUserRepository userRepository,
         IJwtTokenService jwtTokenService,
         IPasswordHasher passwordHasher,
         IRefreshTokenStore tokenStore,
+        ILoginRateLimiter rateLimiter,
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.Email))
@@ -54,13 +63,28 @@ public class LoginEndpoint : IEndpoint
         if (InputSanitizer.ValidateEmail(request.Email) is { } emailErr)
             return Results.BadRequest(emailErr);
 
-        var user = await userRepository.FindByEmailAsync(request.Email.Trim().ToLowerInvariant(), ct);
+        var normalizedEmail = request.Email.Trim().ToLowerInvariant();
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
-        if (user is null || !passwordHasher.Verify(request.Password, user.PasswordHash))
-            return Results.Unauthorized();
+        if (await rateLimiter.IsBlockedAsync(ip, normalizedEmail, ct))
+            return Results.Json(
+                "Too many failed login attempts. Try again in 5 minutes.",
+                statusCode: StatusCodes.Status429TooManyRequests);
 
-        if (user.Status != UserStatus.Active)
+        var user = await userRepository.FindByEmailAsync(normalizedEmail, ct);
+
+        // Always run Verify — even when user is null — to prevent timing-based user enumeration.
+        var hashToVerify = user?.PasswordHash ?? DummyHash;
+        var credentialsValid = passwordHasher.Verify(request.Password, hashToVerify);
+
+        if (user is null || !credentialsValid || user.Status != UserStatus.Active)
+        {
+            if (user is not null)
+                await rateLimiter.RecordFailureAsync(ip, normalizedEmail, ct);
             return Results.Unauthorized();
+        }
+
+        await rateLimiter.ResetAsync(ip, normalizedEmail, ct);
 
         var (accessToken, _, expiresAt) = jwtTokenService.GenerateAccessToken(user);
         var refreshToken = jwtTokenService.GenerateRefreshToken();
