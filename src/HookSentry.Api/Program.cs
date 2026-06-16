@@ -13,6 +13,7 @@ builder.Services
     .AddRedis(builder.Configuration)
     .AddSecurity(builder.Configuration)
     .AddJwtAndApiKeyAuth(builder.Configuration)
+    .AddCorsPolicy()
     .AddSwaggerWithAuth()
     .AddRabbitMq(builder.Configuration)
     .AddObservability(builder.Configuration);
@@ -25,6 +26,7 @@ await mqConn.ConnectAsync(mqSettings, CancellationToken.None);
 
 app.UseSwaggerWithAuth();
 app.UseHttpsRedirection();
+app.UseCors(CorsExtensions.PolicyName);
 app.UseAuthentication();
 app.UseAuthorization();
 app.MapEndpoints();
