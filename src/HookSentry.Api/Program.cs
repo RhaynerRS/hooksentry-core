@@ -33,13 +33,13 @@ builder.Services
 
 var app = builder.Build();
 
+app.Services.MigrateDatabase(app.Configuration);
+
 var mqConn = app.Services.GetRequiredService<RabbitMqConnection>();
 var mqSettings = app.Services.GetRequiredService<IOptions<RabbitMqSettings>>().Value;
 await mqConn.ConnectAsync(mqSettings, CancellationToken.None);
 
 app.UseSwaggerWithAuth();
-if (app.Environment.IsDevelopment())
-    app.UseHttpsRedirection();
 app.UseCors(CorsExtensions.SitePolicyName);
 app.UseAuthentication();
 app.UseAuthorization();
