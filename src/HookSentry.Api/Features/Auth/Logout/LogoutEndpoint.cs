@@ -3,6 +3,7 @@ using HookSentry.Api.Common.Endpoints;
 using HookSentry.Api.Common.Validation;
 using HookSentry.Infrastructure.Auth;
 using HookSentry.Api.DataTransfer.Auth.Requests;
+using Microsoft.IdentityModel.JsonWebTokens;
 
 namespace HookSentry.Api.Features.Auth.Logout;
 
@@ -15,8 +16,9 @@ public class LogoutEndpoint : IEndpoint
             .WithTags("Auth")
             .WithSummary("Invalidates the authenticated user's refresh token")
             .WithDescription("""
-                Removes the refresh token from Redis, preventing it from being reused.
-                The access token (JWT) remains valid until it expires naturally (15 minutes).
+                Removes the refresh token from Redis and immediately revokes the access token (JWT)
+                via a Redis denylist keyed by the token's `jti`. Any subsequent request with the
+                same access token receives `401 Unauthorized`.
 
                 **Body:**
                 - `refreshToken` *(required)*: refresh token to invalidate
@@ -36,6 +38,7 @@ public class LogoutEndpoint : IEndpoint
         LogoutRequest request,
         ClaimsPrincipal user,
         IRefreshTokenStore tokenStore,
+        IJwtDenylist denylist,
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.RefreshToken))
@@ -55,6 +58,20 @@ public class LogoutEndpoint : IEndpoint
             return Results.Unauthorized();
 
         await tokenStore.RemoveAsync(request.RefreshToken);
+
+        var jti = user.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
+        if (jti is not null)
+        {
+            var expClaim = user.FindFirst(JwtRegisteredClaimNames.Exp)?.Value;
+            var remainingTtl = expClaim is not null
+                && long.TryParse(expClaim, out var expUnix)
+                ? DateTimeOffset.FromUnixTimeSeconds(expUnix) - DateTimeOffset.UtcNow
+                : TimeSpan.FromMinutes(15);
+
+            if (remainingTtl > TimeSpan.Zero)
+                await denylist.RevokeAsync(jti, remainingTtl, ct);
+        }
+
         return Results.NoContent();
     }
 }

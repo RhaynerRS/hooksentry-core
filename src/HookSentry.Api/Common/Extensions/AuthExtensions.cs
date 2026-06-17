@@ -4,6 +4,7 @@ using HookSentry.Infrastructure.ApiKeys;
 using HookSentry.Infrastructure.Auth;
 using HookSentry.Infrastructure.Events;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
+using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
 
 namespace HookSentry.Api.Common.Extensions;
@@ -18,6 +19,7 @@ public static class AuthExtensions
         services.AddSingleton<IRefreshTokenStore, RedisRefreshTokenStore>();
         services.AddSingleton<ILoginRateLimiter, RedisLoginRateLimiter>();
         services.AddSingleton<IEventIdempotencyStore, RedisEventIdempotencyStore>();
+        services.AddSingleton<IJwtDenylist, RedisJwtDenylist>();
 
         services
             .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -33,6 +35,17 @@ public static class AuthExtensions
                     ValidAudience = configuration["Jwt:Audience"],
                     IssuerSigningKey = new SymmetricSecurityKey(
                         Encoding.UTF8.GetBytes(configuration["Jwt:Key"]!))
+                };
+
+                options.Events = new JwtBearerEvents
+                {
+                    OnTokenValidated = async ctx =>
+                    {
+                        var denylist = ctx.HttpContext.RequestServices.GetRequiredService<IJwtDenylist>();
+                        var jti = ctx.Principal?.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
+                        if (jti is not null && await denylist.IsRevokedAsync(jti))
+                            ctx.Fail("Token has been revoked.");
+                    }
                 };
             })
             .AddScheme<Microsoft.AspNetCore.Authentication.AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(
