@@ -1,0 +1,33 @@
+FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
+WORKDIR /src
+
+COPY src/HookSentry.Worker/*.csproj ./HookSentry.Worker/
+COPY src/HookSentry.Domain/*.csproj ./HookSentry.Domain/
+COPY src/HookSentry.Infrastructure/*.csproj ./HookSentry.Infrastructure/
+RUN dotnet restore ./HookSentry.Worker/HookSentry.Worker.csproj
+
+COPY src/HookSentry.Worker/ ./HookSentry.Worker/
+COPY src/HookSentry.Domain/ ./HookSentry.Domain/
+COPY src/HookSentry.Infrastructure/ ./HookSentry.Infrastructure/
+
+FROM build AS publish
+RUN dotnet publish ./HookSentry.Worker/HookSentry.Worker.csproj \
+    -c Release -o /app/publish \
+    -r linux-musl-x64 \
+    --no-self-contained \
+    /p:PublishReadyToRun=true
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime
+WORKDIR /app
+EXPOSE 7143
+
+ENV ASPNETCORE_HTTP_PORTS=7143
+
+RUN addgroup -S -g 1001 dotnet && \
+    adduser -S -u 1001 -G dotnet appuser
+
+COPY --from=publish --chown=appuser:dotnet /app/publish .
+
+USER appuser
+
+ENTRYPOINT ["dotnet", "HookSentry.Worker.dll"]

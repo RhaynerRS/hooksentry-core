@@ -1,0 +1,85 @@
+services:
+  api:
+    build:
+      context: .
+      dockerfile: src/HookSentry.Api/dockerfile
+    ports:
+      - "5143:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=Your_database;Username=Your_username;Password=Your_password123
+      - ConnectionStrings__Redis=redis:6379,user=default,password=Your_redis_password,abortConnect=false
+      - Jwt__Key=YTNmOGMyZDFlNGI3MDkxZjZhNWQzZTJjOGYxYjRhNzA=
+      - RabbitMq__Host=rabbitmq
+      - RabbitMq__Username=Your_username
+      - RabbitMq__Password=Your_password123
+      - CredentialEncryption__Key=YTNmOGMyZDFlNGI3MDkxZjZhNWQzZTJjOGYxYjRhNzA=
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  worker:
+    build:
+      context: .
+      dockerfile: src/HookSentry.Worker/dockerfile
+    ports:
+      - "7143:8080"
+    environment:
+      - ASPNETCORE_ENVIRONMENT=Development
+      - ConnectionStrings__DefaultConnection=Host=postgres;Port=5432;Database=Your_database;Username=Your_username;Password=Your_password123
+      - ConnectionStrings__Redis=redis:6379,user=default,password=Your_redis_password,abortConnect=false
+      - RabbitMq__Host=rabbitmq
+      - RabbitMq__Username=Your_username
+      - RabbitMq__Password=Your_password123
+      - CredentialEncryption__Key=YTNmOGMyZDFlNGI3MDkxZjZhNWQzZTJjOGYxYjRhNzA=
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    environment:
+      RABBITMQ_DEFAULT_USER: "Your_username"
+      RABBITMQ_DEFAULT_PASS: "Your_password123"
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "check_port_connectivity"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  postgres:
+    image: postgres:latest
+    environment:
+      POSTGRES_PASSWORD: "Your_password123"
+      POSTGRES_USER: "Your_username"
+      POSTGRES_DB: "Your_database"
+    ports:
+      - "5432:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U Your_username -d Your_database"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:alpine
+    command: redis-server --requirepass Your_redis_password
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "Your_redis_password", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
