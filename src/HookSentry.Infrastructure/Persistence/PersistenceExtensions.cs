@@ -45,4 +45,13 @@ public static class PersistenceExtensions
 
         return services;
     }
+
+    public static void MigrateDatabase(this IServiceProvider services, IConfiguration configuration)
+    {
+        var connectionString = configuration.GetConnectionString("DefaultConnection")
+            ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
+
+        var loggerFactory = services.GetRequiredService<Microsoft.Extensions.Logging.ILoggerFactory>();
+        DatabaseMigrator.Migrate(connectionString, loggerFactory);
+    }
 }

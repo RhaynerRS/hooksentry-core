@@ -1,0 +1,1 @@
+ALTER TABLE invite_tokens ADD COLUMN version INTEGER NOT NULL DEFAULT 0;
