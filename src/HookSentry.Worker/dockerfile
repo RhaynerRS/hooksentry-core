@@ -1,0 +1,47 @@
+FROM alpine:3.20
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && apt-get install -y \
+    curl \
+    git \
+    vim \
+    sudo \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN ln -sf /usr/share/zoneinfo/UTC /etc/localtime
+
+RUN useradd -m -s /bin/bash appuser && \
+    echo "appuser ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+
+WORKDIR /home/appuser
+USER appuser
+
+CMD ["/bin/bash"]
+
+FROM mcr.microsoft.com/dotnet/sdk:10.0-alpine AS build
+WORKDIR /src
+
+COPY *.sln ./
+COPY src/HookSentry.Worker/*.csproj ./src/HookSentry.Worker/
+COPY src/HookSentry.Domain/*.csproj ./src/HookSentry.Domain/
+COPY src/HookSentry.Infrastructure/*.csproj ./src/HookSentry.Infrastructure/
+
+RUN dotnet restore ./src/HookSentry.Worker/HookSentry.Worker.csproj
+
+COPY ./src .
+
+WORKDIR "/src/HookSentry.Worker"
+
+FROM build AS publish
+RUN dotnet publish -c Release -o /app/publish /p:PublishReadyToRun=true
+
+FROM mcr.microsoft.com/dotnet/aspnet:10.0-alpine AS runtime
+WORKDIR /app
+EXPOSE 7143
+
+ENV ASPNETCORE_URLS=http://+:7143
+ENV ASPNETCORE_HTTP_PORTS=7143
+
+COPY --from=publish /app/publish .
+ENTRYPOINT ["dotnet", "HookSentry.Worker.dll"]

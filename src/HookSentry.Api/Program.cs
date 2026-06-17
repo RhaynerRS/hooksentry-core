@@ -38,7 +38,8 @@ var mqSettings = app.Services.GetRequiredService<IOptions<RabbitMqSettings>>().V
 await mqConn.ConnectAsync(mqSettings, CancellationToken.None);
 
 app.UseSwaggerWithAuth();
-app.UseHttpsRedirection();
+if (app.Environment.IsDevelopment())
+    app.UseHttpsRedirection();
 app.UseCors(CorsExtensions.SitePolicyName);
 app.UseAuthentication();
 app.UseAuthorization();
