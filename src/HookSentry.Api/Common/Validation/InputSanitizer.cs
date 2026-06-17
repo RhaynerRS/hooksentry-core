@@ -5,6 +5,7 @@ internal static class InputSanitizer
     private const int MaxRefreshTokenLength = 512;
     private const int MaxEmailLength = 255;
     private const int MaxNameLength = 255;
+    private const int MaxIdempotencyKeyLength = 255;
 
     public static bool HasControlChars(string value) =>
         value.Any(c => c is '\r' or '\n' or '\0');
@@ -44,6 +45,15 @@ internal static class InputSanitizer
             return $"'name' cannot exceed {MaxNameLength} characters.";
         if (HasControlChars(name))
             return "'name' cannot contain control characters (\\r, \\n, \\0).";
+        return null;
+    }
+
+    public static string? ValidateIdempotencyKey(string key)
+    {
+        if (key.Length > MaxIdempotencyKeyLength)
+            return $"'X-Idempotency-Key' cannot exceed {MaxIdempotencyKeyLength} characters.";
+        if (HasControlChars(key))
+            return "'X-Idempotency-Key' cannot contain control characters (\\r, \\n, \\0).";
         return null;
     }
 

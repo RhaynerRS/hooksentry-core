@@ -41,9 +41,9 @@ public class IngestEndpoint : IEndpoint
 
                 **Headers:**
                 - `X-Api-Key` *(required)*: API key for authentication
-                - `X-Idempotency-Key` *(optional)*: key of up to 255 characters — if an event already exists
-                  with the same key for this tenant, returns `200 OK` with the original event data
-                  without reprocessing
+                - `X-Idempotency-Key` *(optional)*: key of up to 255 characters, no control characters
+                  (\r, \n, \0) — if an event already exists with the same key for this tenant,
+                  returns `200 OK` with the original event data without reprocessing
 
                 **Body:**
                 - Arbitrary JSON object to be delivered to the destination URL
@@ -95,6 +95,8 @@ public class IngestEndpoint : IEndpoint
         var idempotencyKey = httpRequest.Headers["X-Idempotency-Key"].FirstOrDefault();
         if (idempotencyKey is not null)
         {
+            if (InputSanitizer.ValidateIdempotencyKey(idempotencyKey) is { } keyErr)
+                return Results.BadRequest(keyErr);
             Event? existing = null;
             try
             {
