@@ -174,7 +174,7 @@ public class InviteTokenTests
 
             var ex = Assert.Throws<InvalidOperationException>(() => invite.Use());
 
-            Assert.Contains("utilizado", ex.Message);
+            Assert.Contains("already been used", ex.Message);
         }
 
         [Fact]
@@ -187,7 +187,7 @@ public class InviteTokenTests
 
             var ex = Assert.Throws<InvalidOperationException>(() => invite.Use());
 
-            Assert.Contains("expirou", ex.Message);
+            Assert.Contains("expired", ex.Message);
         }
     }
 }

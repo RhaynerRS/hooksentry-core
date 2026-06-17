@@ -5,6 +5,7 @@ namespace HookSentry.Domain.Invites;
 public class InviteToken
 {
     public virtual Guid Id { get; protected set; }
+    public virtual int Version { get; protected set; }
     public virtual Guid TenantId { get; protected set; }
     public virtual string Token { get; protected set; } = default!;
     public virtual DateTimeOffset ExpiresAt { get; protected set; }

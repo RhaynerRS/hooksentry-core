@@ -78,7 +78,14 @@ public class CreateUserEndpoint : IEndpoint
 
         await using var uow = uowFactory.Create();
         await userRepository.AddAsync(newUser, ct);
-        await uow.CommitAsync(ct);
+        try
+        {
+            await uow.CommitAsync(ct);
+        }
+        catch (Exception ex) when (ex.IsUniqueViolation())
+        {
+            return Results.Conflict($"Email '{request.Email}' is already in use.");
+        }
 
         return Results.Created($"/api/v1/users/{newUser.Id}", UserResponse.From(newUser));
     }

@@ -1,4 +1,5 @@
 using HookSentry.Api.Common.Endpoints;
+using HookSentry.Api.Common.Extensions;
 using HookSentry.Api.Common.Validation;
 using HookSentry.Domain;
 using HookSentry.Domain.Security;
@@ -77,7 +78,14 @@ public class CreateTenantEndpoint : IEndpoint
         await using var uow = uowFactory.Create();
         await tenantRepository.AddAsync(tenant, ct);
         await userRepository.AddAsync(admin, ct);
-        await uow.CommitAsync(ct);
+        try
+        {
+            await uow.CommitAsync(ct);
+        }
+        catch (Exception ex) when (ex.IsUniqueViolation())
+        {
+            return Results.Conflict($"A tenant with this name or email already exists.");
+        }
 
         return Results.Created(
             $"/api/v1/tenants/{tenant.Id}",

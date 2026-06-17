@@ -1,4 +1,5 @@
 using HookSentry.Api.Common.Endpoints;
+using HookSentry.Api.Common.Extensions;
 using HookSentry.Api.Common.Validation;
 using HookSentry.Domain;
 using HookSentry.Domain.Security;
@@ -79,7 +80,18 @@ public class RegisterWithInviteEndpoint : IEndpoint
         catch (ArgumentException ex) { return Results.BadRequest(ex.Message); }
 
         await userRepository.AddAsync(newUser, ct);
-        await uow.CommitAsync(ct);
+        try
+        {
+            await uow.CommitAsync(ct);
+        }
+        catch (NHibernate.StaleObjectStateException)
+        {
+            return Results.Conflict("This invite has already been used.");
+        }
+        catch (Exception ex) when (ex.IsUniqueViolation())
+        {
+            return Results.Conflict($"Email '{request.Email}' is already in use.");
+        }
 
         return Results.Created($"/api/v1/users/{newUser.Id}", UserResponse.From(newUser));
     }

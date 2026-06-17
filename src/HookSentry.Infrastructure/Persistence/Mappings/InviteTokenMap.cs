@@ -9,8 +9,10 @@ public class InviteTokenMap : ClassMap<InviteToken>
     {
         Table("invite_tokens");
         Not.LazyLoad();
+        OptimisticLock.Version();
 
         Id(x => x.Id, "id").GeneratedBy.Assigned();
+        Version(x => x.Version).Column("version");
         Map(x => x.TenantId, "tenant_id").Not.Nullable();
         Map(x => x.Token, "token").Not.Nullable().Length(64);
         Map(x => x.ExpiresAt, "expires_at").Not.Nullable();
