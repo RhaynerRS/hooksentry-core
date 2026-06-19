@@ -1,5 +1,6 @@
 using System.Text.Json.Serialization;
 using HookSentry.Api.Common.Endpoints;
+using HookSentry.Api.Common.Exceptions;
 using HookSentry.Api.Common.Extensions;
 using HookSentry.Infrastructure.Observability;
 using HookSentry.Infrastructure.Persistence;
@@ -21,6 +22,8 @@ builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
 builder.Services
+    .AddExceptionHandler<GlobalExceptionHandler>()
+    .AddProblemDetails()
     .AddEndpoints()
     .AddPersistence(builder.Configuration)
     .AddRedis(builder.Configuration)
@@ -39,6 +42,7 @@ var mqConn = app.Services.GetRequiredService<RabbitMqConnection>();
 var mqSettings = app.Services.GetRequiredService<IOptions<RabbitMqSettings>>().Value;
 await mqConn.ConnectAsync(mqSettings, CancellationToken.None);
 
+app.UseExceptionHandler();
 app.UseSwaggerWithAuth();
 app.UseCors(CorsExtensions.SitePolicyName);
 app.UseAuthentication();
