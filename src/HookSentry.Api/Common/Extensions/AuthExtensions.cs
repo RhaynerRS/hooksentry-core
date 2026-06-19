@@ -34,7 +34,8 @@ public static class AuthExtensions
                     ValidIssuer = configuration["Jwt:Issuer"],
                     ValidAudience = configuration["Jwt:Audience"],
                     IssuerSigningKey = new SymmetricSecurityKey(
-                        Encoding.UTF8.GetBytes(configuration["Jwt:Key"]!))
+                        Encoding.UTF8.GetBytes(configuration["Jwt:Key"]!)),
+                    ValidAlgorithms = [SecurityAlgorithms.HmacSha256]
                 };
 
                 options.Events = new JwtBearerEvents
@@ -45,6 +46,12 @@ public static class AuthExtensions
                         var jti = ctx.Principal?.FindFirst(JwtRegisteredClaimNames.Jti)?.Value;
                         if (jti is not null && await denylist.IsRevokedAsync(jti))
                             ctx.Fail("Token has been revoked.");
+                    },
+                    OnChallenge = ctx =>
+                    {
+                        ctx.HandleResponse();
+                        ctx.Response.StatusCode = 401;
+                        return Task.CompletedTask;
                     }
                 };
             })
