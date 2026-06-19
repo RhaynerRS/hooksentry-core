@@ -13,13 +13,13 @@ public static class ObservabilityExtensions
     {
         var endpoint = config["Otel:Endpoint"]
             ?? throw new InvalidOperationException("Otel:Endpoint configuration is required.");
+        var logsEndpoint = config["Otel:LogsEndpoint"] ?? endpoint;
         var serviceName = config["Otel:ServiceName"]
             ?? throw new InvalidOperationException("Otel:ServiceName configuration is required.");
 
         services.AddOpenTelemetry()
+            .ConfigureResource(r => r.AddService(serviceName))
             .WithTracing(tracing => tracing
-                .SetResourceBuilder(ResourceBuilder.CreateDefault()
-                    .AddService(serviceName))
                 .AddAspNetCoreInstrumentation()
                 .AddHttpClientInstrumentation()
                 .AddSource("HookSentry.Worker")
@@ -31,8 +31,8 @@ public static class ObservabilityExtensions
             .WithLogging(logging => logging
                 .AddOtlpExporter(o =>
                 {
-                    o.Endpoint = new Uri(endpoint);
-                    o.Protocol = OtlpExportProtocol.Grpc;
+                    o.Endpoint = new Uri(logsEndpoint);
+                    o.Protocol = OtlpExportProtocol.HttpProtobuf;
                 }));
 
         return services;
