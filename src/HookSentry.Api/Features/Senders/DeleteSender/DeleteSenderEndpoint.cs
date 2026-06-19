@@ -38,6 +38,7 @@ public class DeleteSenderEndpoint : IEndpoint
         ClaimsPrincipal user,
         IWebhookSenderRepository senderRepository,
         IUnitOfWorkFactory uowFactory,
+        ILogger<DeleteSenderEndpoint> logger,
         CancellationToken ct)
     {
         if (user.RequireTenantId(out var tenantId) is { } err) return err;
@@ -50,6 +51,10 @@ public class DeleteSenderEndpoint : IEndpoint
 
         await senderRepository.RemoveAsync(sender, ct);
         await uow.CommitAsync(ct);
+
+        logger.LogInformation(
+            "Sender deleted. TenantId={TenantId} SenderId={SenderId} ActorEmail={ActorEmail}",
+            tenantId, id, user.GetEmail());
 
         return Results.NoContent();
     }

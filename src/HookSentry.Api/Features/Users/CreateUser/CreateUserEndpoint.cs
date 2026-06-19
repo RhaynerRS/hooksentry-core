@@ -52,6 +52,7 @@ public class CreateUserEndpoint : IEndpoint
         ITenantRepository tenantRepository,
         IUserRepository userRepository,
         IUnitOfWorkFactory uowFactory,
+        ILogger<CreateUserEndpoint> logger,
         CancellationToken ct)
     {
         if (principal.RequireTenantId(out var tenantId) is { } err) return err;
@@ -86,6 +87,10 @@ public class CreateUserEndpoint : IEndpoint
         {
             return Results.Conflict($"Email '{request.Email}' is already in use.");
         }
+
+        logger.LogInformation(
+            "User provisioned. TenantId={TenantId} UserId={UserId} Email={Email} Role={Role} ActorEmail={ActorEmail}",
+            tenantId, newUser.Id, newUser.Email, newUser.Role, principal.GetEmail());
 
         return Results.Created($"/api/v1/users/{newUser.Id}", UserResponse.From(newUser));
     }

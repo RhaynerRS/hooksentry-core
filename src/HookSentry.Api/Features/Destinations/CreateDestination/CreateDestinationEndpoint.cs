@@ -58,6 +58,7 @@ public class CreateDestinationEndpoint : IEndpoint
         IDestinationUrlRepository destinationRepository,
         IUnitOfWorkFactory uowFactory,
         ICredentialEncryptionService encryption,
+        ILogger<CreateDestinationEndpoint> logger,
         CancellationToken ct)
     {
         if (user.RequireTenantId(out var tenantId) is { } err) return err;
@@ -105,6 +106,10 @@ public class CreateDestinationEndpoint : IEndpoint
         await using var uow = uowFactory.Create();
         await destinationRepository.AddAsync(destination, ct);
         await uow.CommitAsync(ct);
+
+        logger.LogInformation(
+            "Destination provisioned. TenantId={TenantId} DestinationId={DestinationId} Url={Url} ActorEmail={ActorEmail}",
+            tenantId, destination.Id, request.Url, user.GetEmail());
 
         return Results.Created(
             $"/api/v1/destinations/{destination.Id}",

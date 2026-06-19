@@ -31,4 +31,7 @@ public static class ClaimsPrincipalExtensions
        }
        throw new ArgumentException("Invalid user role");
     }
+
+    public static string? GetEmail(this ClaimsPrincipal principal)
+        => principal.FindFirstValue("email");
 }

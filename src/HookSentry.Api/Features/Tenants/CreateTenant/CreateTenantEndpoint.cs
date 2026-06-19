@@ -48,6 +48,7 @@ public class CreateTenantEndpoint : IEndpoint
         ITenantRepository tenantRepository,
         IUserRepository userRepository,
         IUnitOfWorkFactory uowFactory,
+        ILogger<CreateTenantEndpoint> logger,
         CancellationToken ct)
     {
         if (InputSanitizer.ValidateName(request.Name) is { } nameErr)
@@ -86,6 +87,10 @@ public class CreateTenantEndpoint : IEndpoint
         {
             return Results.Conflict($"A tenant with this name or email already exists.");
         }
+
+        logger.LogInformation(
+            "Tenant provisioned. TenantId={TenantId} Name={TenantName} AdminId={AdminId} AdminEmail={AdminEmail}",
+            tenant.Id, tenant.Name, admin.Id, admin.Email);
 
         return Results.Created(
             $"/api/v1/tenants/{tenant.Id}",

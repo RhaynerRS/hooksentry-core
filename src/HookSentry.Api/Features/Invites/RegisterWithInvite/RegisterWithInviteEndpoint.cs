@@ -51,6 +51,7 @@ public class RegisterWithInviteEndpoint : IEndpoint
         IInviteTokenRepository inviteRepository,
         IUserRepository userRepository,
         IUnitOfWorkFactory uowFactory,
+        ILogger<RegisterWithInviteEndpoint> logger,
         CancellationToken ct)
     {
         var invite = await inviteRepository.FindByTokenAsync(token, ct);
@@ -92,6 +93,10 @@ public class RegisterWithInviteEndpoint : IEndpoint
         {
             return Results.Conflict($"Email '{request.Email}' is already in use.");
         }
+
+        logger.LogInformation(
+            "User registered via invite. TenantId={TenantId} UserId={UserId} Email={Email} InviteId={InviteId}",
+            newUser.TenantId, newUser.Id, newUser.Email, invite.Id);
 
         return Results.Created($"/api/v1/users/{newUser.Id}", UserResponse.From(newUser));
     }

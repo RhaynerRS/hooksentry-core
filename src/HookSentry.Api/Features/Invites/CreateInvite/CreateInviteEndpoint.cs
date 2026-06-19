@@ -47,6 +47,7 @@ public class CreateInviteEndpoint : IEndpoint
         ITenantRepository tenantRepository,
         IInviteTokenRepository inviteRepository,
         IUnitOfWorkFactory uowFactory,
+        ILogger<CreateInviteEndpoint> logger,
         CancellationToken ct)
     {
         if (principal.RequireAdminRole(out var tenantId) is { } err) return err;
@@ -62,6 +63,10 @@ public class CreateInviteEndpoint : IEndpoint
         await using var uow = uowFactory.Create();
         await inviteRepository.AddAsync(invite, ct);
         await uow.CommitAsync(ct);
+
+        logger.LogInformation(
+            "Invite provisioned. TenantId={TenantId} InviteId={InviteId} ExpiresAt={ExpiresAt} ActorEmail={ActorEmail}",
+            tenantId, invite.Id, invite.ExpiresAt, principal.GetEmail());
 
         return Results.Created($"/api/v1/invites/{invite.Id}", InviteTokenResponse.From(invite));
     }

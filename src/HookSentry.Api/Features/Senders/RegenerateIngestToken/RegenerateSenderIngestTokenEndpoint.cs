@@ -42,6 +42,7 @@ public class RegenerateSenderIngestTokenEndpoint : IEndpoint
         ClaimsPrincipal user,
         IWebhookSenderRepository senderRepository,
         IUnitOfWorkFactory uowFactory,
+        ILogger<RegenerateSenderIngestTokenEndpoint> logger,
         CancellationToken ct)
     {
         if (user.RequireTenantId(out var tenantId) is { } err) return err;
@@ -55,6 +56,10 @@ public class RegenerateSenderIngestTokenEndpoint : IEndpoint
         var rawToken = sender.RotateIngestToken();
 
         await uow.CommitAsync(ct);
+
+        logger.LogInformation(
+            "Sender ingest token rotated. TenantId={TenantId} SenderId={SenderId} ActorEmail={ActorEmail}",
+            tenantId, id, user.GetEmail());
 
         return Results.Ok(new SenderIngestTokenResponse(rawToken));
     }

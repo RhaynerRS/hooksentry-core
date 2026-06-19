@@ -42,6 +42,7 @@ public class RevokeApiKeyEndpoint : IEndpoint
         IApiKeyRepository apiKeyRepository,
         IUnitOfWorkFactory uowFactory,
         IApiKeyCacheService cache,
+        ILogger<RevokeApiKeyEndpoint> logger,
         CancellationToken ct)
     {
         if (user.RequireTenantId(out var tenantId) is { } authErr) return authErr;
@@ -57,6 +58,10 @@ public class RevokeApiKeyEndpoint : IEndpoint
 
         await uow.CommitAsync(ct);
         await cache.RemoveAsync(apiKey.KeyHash, ct);
+
+        logger.LogInformation(
+            "ApiKey revoked. TenantId={TenantId} ApiKeyId={ApiKeyId} ActorEmail={ActorEmail}",
+            tenantId, id, user.GetEmail());
 
         return Results.Ok(ApiKeyResponse.From(apiKey));
     }

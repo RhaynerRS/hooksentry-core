@@ -55,6 +55,7 @@ public class UpdateDestinationEndpoint : IEndpoint
         IUnitOfWorkFactory uowFactory,
         ICredentialEncryptionService encryption,
         IDestinationCacheService destinationCache,
+        ILogger<UpdateDestinationEndpoint> logger,
         CancellationToken ct)
     {
         if (user.RequireTenantId(out var tenantId) is { } err) return err;
@@ -127,6 +128,10 @@ public class UpdateDestinationEndpoint : IEndpoint
         await uow.CommitAsync(ct);
 
         await destinationCache.RemoveAsync(destination.Id, ct);
+
+        logger.LogInformation(
+            "Destination updated. TenantId={TenantId} DestinationId={DestinationId} ActorEmail={ActorEmail}",
+            tenantId, id, user.GetEmail());
 
         return Results.Ok(DestinationResponse.From(destination));
     }

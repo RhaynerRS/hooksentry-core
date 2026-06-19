@@ -54,6 +54,7 @@ public class SetSenderMappingEndpoint : IEndpoint
         ClaimsPrincipal user,
         IWebhookSenderRepository senderRepository,
         IUnitOfWorkFactory uowFactory,
+        ILogger<SetSenderMappingEndpoint> logger,
         CancellationToken ct)
     {
         if (user.RequireTenantId(out var tenantId) is { } err) return err;
@@ -72,6 +73,10 @@ public class SetSenderMappingEndpoint : IEndpoint
         sender.SetMapping(mappingBody.GetRawText());
 
         await uow.CommitAsync(ct);
+
+        logger.LogInformation(
+            "Sender mapping set. TenantId={TenantId} SenderId={SenderId} ActorEmail={ActorEmail}",
+            tenantId, id, user.GetEmail());
 
         return Results.Ok(new SenderMappingResponse(mappingBody));
     }

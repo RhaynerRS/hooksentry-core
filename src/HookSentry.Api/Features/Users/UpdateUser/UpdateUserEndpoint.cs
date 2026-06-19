@@ -55,6 +55,7 @@ public class UpdateUserEndpoint : IEndpoint
         IPasswordHasher passwordHasher,
         IUserRepository userRepository,
         IUnitOfWorkFactory uowFactory,
+        ILogger<UpdateUserEndpoint> logger,
         CancellationToken ct)
     {
         if (principal.RequireTenantId(out var tenantId) is { } err) return err;
@@ -87,6 +88,11 @@ public class UpdateUserEndpoint : IEndpoint
         catch (ArgumentException ex) { return Results.BadRequest(ex.Message); }
 
         await uow.CommitAsync(ct);
+
+        logger.LogInformation(
+            "User updated. TenantId={TenantId} UserId={UserId} ActorEmail={ActorEmail}",
+            tenantId, id, principal.GetEmail());
+
         return Results.Ok(UserResponse.From(user));
     }
 }

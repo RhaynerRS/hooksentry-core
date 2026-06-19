@@ -175,7 +175,7 @@ public sealed class WebhookDeliveryConsumer(
     private async Task HandleAuthFailureAsync(
         EventMessage message, HttpResponseMessage response, IChannel channel, ulong deliveryTag, CancellationToken ct)
     {
-        await LogDeliveryFailureAsync(message, response, "AuthenticationFailed", ct);
+        await LogDeliveryFailureAsync(message, response, "AuthenticationFailed", LogLevel.Error, ct);
         await MarkAuthenticationFailedAsync(message.EventId, ct);
         await channel.BasicNackAsync(deliveryTag, multiple: false, requeue: false, cancellationToken: ct);
     }
@@ -184,16 +184,21 @@ public sealed class WebhookDeliveryConsumer(
         EventMessage message, HttpResponseMessage response, IChannel channel, ulong deliveryTag, CancellationToken ct)
     {
         var nextRetry = message.RetryCount + 1;
-        var errorType = nextRetry >= message.MaxTrys ? "RetryExhausted" : "HttpError";
-        await LogDeliveryFailureAsync(message, response, errorType, ct);
+        var isCritical = nextRetry >= message.MaxTrys;
+
+        if (isCritical)
+            await LogDeliveryFailureAsync(message, response, "RetryExhausted", LogLevel.Error, ct);
+        else if (message.RetryCount >= 2)
+            await LogDeliveryFailureAsync(message, response, "HttpError", LogLevel.Warning, ct);
+
         await RetryOrGiveUpAsync(message, channel, deliveryTag, ct);
     }
 
     private async Task LogDeliveryFailureAsync(
-        EventMessage message, HttpResponseMessage response, string errorType, CancellationToken ct)
+        EventMessage message, HttpResponseMessage response, string errorType, LogLevel level, CancellationToken ct)
     {
         var responseBody = await response.Content.ReadAsStringAsync(ct);
-        logger.LogWarning(
+        logger.Log(level,
             "Webhook delivery failed. EventId={EventId} TenantId={TenantId} " +
             "DestinationId={DestinationId} Attempt={Attempt} " +
             "HttpStatus={HttpStatus} ErrorType={ErrorType} Body={ResponseBody}",

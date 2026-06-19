@@ -39,6 +39,7 @@ public class DeleteSenderMappingEndpoint : IEndpoint
         ClaimsPrincipal user,
         IWebhookSenderRepository senderRepository,
         IUnitOfWorkFactory uowFactory,
+        ILogger<DeleteSenderMappingEndpoint> logger,
         CancellationToken ct)
     {
         if (user.RequireTenantId(out var tenantId) is { } err) return err;
@@ -52,6 +53,10 @@ public class DeleteSenderMappingEndpoint : IEndpoint
         sender.SetMapping(null);
 
         await uow.CommitAsync(ct);
+
+        logger.LogInformation(
+            "Sender mapping deleted. TenantId={TenantId} SenderId={SenderId} ActorEmail={ActorEmail}",
+            tenantId, id, user.GetEmail());
 
         return Results.NoContent();
     }

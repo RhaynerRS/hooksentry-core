@@ -46,6 +46,7 @@ public class CreateApiKeyEndpoint : IEndpoint
         IApiKeyRepository apiKeyRepository,
         IUnitOfWorkFactory uowFactory,
         IApiKeyCacheService cache,
+        ILogger<CreateApiKeyEndpoint> logger,
         CancellationToken ct)
     {
         if (user.RequireTenantId(out var tenantId) is { } authErr) return authErr;
@@ -62,6 +63,10 @@ public class CreateApiKeyEndpoint : IEndpoint
         await uow.CommitAsync(ct);
 
         await cache.SetAsync(apiKey.KeyHash, new ApiKeyCacheEntry(tenantId), ct);
+
+        logger.LogInformation(
+            "ApiKey provisioned. TenantId={TenantId} ApiKeyId={ApiKeyId} Name={KeyName} ActorEmail={ActorEmail}",
+            tenantId, apiKey.Id, apiKey.Name, user.GetEmail());
 
         return Results.Created(
             $"/api/v1/apikeys/{apiKey.Id}",

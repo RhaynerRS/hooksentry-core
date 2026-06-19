@@ -44,6 +44,7 @@ public class RegenerateIngestTokenEndpoint : IEndpoint
         IDestinationUrlRepository destinationRepository,
         IUnitOfWorkFactory uowFactory,
         IDestinationCacheService destinationCache,
+        ILogger<RegenerateIngestTokenEndpoint> logger,
         CancellationToken ct)
     {
         if (user.RequireTenantId(out var tenantId) is { } err) return err;
@@ -59,6 +60,10 @@ public class RegenerateIngestTokenEndpoint : IEndpoint
         await uow.CommitAsync(ct);
 
         await destinationCache.RemoveAsync(destination.Id, ct);
+
+        logger.LogInformation(
+            "Destination ingest token rotated. TenantId={TenantId} DestinationId={DestinationId} ActorEmail={ActorEmail}",
+            tenantId, id, user.GetEmail());
 
         return Results.Ok(new IngestTokenResponse(rawToken));
     }

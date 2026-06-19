@@ -50,6 +50,7 @@ public class ReplayEventEndpoint : IEndpoint
         ITenantRepository tenantRepository,
         IUnitOfWorkFactory uowFactory,
         IEventPublisher publisher,
+        ILogger<ReplayEventEndpoint> logger,
         CancellationToken ct)
     {
         if (user.RequireTenantId(out var tenantId) is { } err) return err;
@@ -88,6 +89,10 @@ public class ReplayEventEndpoint : IEndpoint
             AuthType: destination.AuthType,
             CredentialsEncrypted: destination.CredentialsEncrypted
         ), ct);
+
+        logger.LogInformation(
+            "Event replayed. TenantId={TenantId} EventId={EventId} ActorEmail={ActorEmail}",
+            tenantId, id, user.GetEmail());
 
         return Results.Ok(EventResponse.From(evt));
     }

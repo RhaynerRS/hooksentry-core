@@ -42,6 +42,7 @@ public class DeleteUserEndpoint : IEndpoint
         ClaimsPrincipal principal,
         IUserRepository userRepository,
         IUnitOfWorkFactory uowFactory,
+        ILogger<DeleteUserEndpoint> logger,
         CancellationToken ct)
     {
         if (principal.RequireAdminRole(out var tenantId) is { } err) return err;
@@ -55,6 +56,10 @@ public class DeleteUserEndpoint : IEndpoint
 
         await userRepository.RemoveAsync(user, ct);
         await uow.CommitAsync(ct);
+
+        logger.LogInformation(
+            "User deleted. TenantId={TenantId} UserId={UserId} ActorEmail={ActorEmail}",
+            tenantId, id, principal.GetEmail());
 
         return Results.NoContent();
     }

@@ -5,16 +5,16 @@ using HookSentry.Api.DataTransfer.Tenants.Responses;
 using HookSentry.Domain;
 using HookSentry.Domain.Tenants;
 
-namespace HookSentry.Api.Features.Tenants.RotateWebhookSecret;
+namespace HookSentry.Api.Features.Tenants.RegenerateWebhookSecret;
 
-public class RotateWebhookSecretEndpoint : IEndpoint
+public class RegenerateWebhookSecretEndpoint : IEndpoint
 {
     public void MapEndpoints(IEndpointRouteBuilder app)
     {
         app.MapPost("/api/v1/tenants/{id:guid}/webhook-secret", Handle)
             .WithName("RegenerateWebhookSecret")
             .WithTags("Tenants")
-            .WithSummary("Rotates the webhook secret for the tenant")
+            .WithSummary("Regenerates the webhook secret for the tenant")
             .WithDescription("""
                 Generates a new HMAC-SHA256 webhook secret and invalidates the previous one.
                 All destination servers must be updated with the new secret to continue verifying
@@ -41,6 +41,7 @@ public class RotateWebhookSecretEndpoint : IEndpoint
         ClaimsPrincipal user,
         ITenantRepository tenantRepository,
         IUnitOfWorkFactory uowFactory,
+        ILogger<RegenerateWebhookSecretEndpoint> logger,
         CancellationToken ct)
     {
         if (user.RequireTenantId(out var tenantId) is { } err) return err;
@@ -54,6 +55,10 @@ public class RotateWebhookSecretEndpoint : IEndpoint
         tenant.RotateWebhookSecret();
 
         await uow.CommitAsync(ct);
+
+        logger.LogInformation(
+            "Webhook secret rotated. TenantId={TenantId} ActorEmail={ActorEmail}",
+            tenantId, user.GetEmail());
 
         return Results.Ok(new WebhookSecretResponse(tenant.WebhookSecret));
     }

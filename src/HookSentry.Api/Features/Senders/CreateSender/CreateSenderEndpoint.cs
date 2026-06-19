@@ -53,6 +53,7 @@ public class CreateSenderEndpoint : IEndpoint
         IDestinationUrlRepository destinationRepository,
         IWebhookSenderRepository senderRepository,
         IUnitOfWorkFactory uowFactory,
+        ILogger<CreateSenderEndpoint> logger,
         CancellationToken ct)
     {
         if (user.RequireTenantId(out var tenantId) is { } err) return err;
@@ -82,6 +83,10 @@ public class CreateSenderEndpoint : IEndpoint
         await using var uow = uowFactory.Create();
         await senderRepository.AddAsync(sender, ct);
         await uow.CommitAsync(ct);
+
+        logger.LogInformation(
+            "Sender provisioned. TenantId={TenantId} DestinationId={DestinationId} SenderId={SenderId} ActorEmail={ActorEmail}",
+            tenantId, destinationId, sender.Id, user.GetEmail());
 
         return Results.Created(
             $"/api/v1/senders/{sender.Id}",
