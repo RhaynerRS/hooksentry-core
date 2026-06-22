@@ -66,42 +66,30 @@ dotnet test src/HookSentry.Tests
 ## Architecture
 
 ```mermaid
-flowchart LR
-    Client(["HTTP Client"])
+flowchart TD
+    SPA(["HookSentry SPA\nNext.js"])
+    ExtA(["API externa A\nwebhook source"])
 
-    subgraph api["HookSentry.Api"]
-        API["JWT · API Key\nIdempotency · Destination cache"]
-    end
+    API["HookSentry API\n.NET 10"]
+    MQ[/"Fila Processamento\nRabbitMQ"/]
+    Worker["Worker Webhooks\n.NET Background Service"]
 
-    subgraph infra["Infrastructure"]
-        Redis[("Redis")]
-        PG[("PostgreSQL")]
-        MQ[("RabbitMQ")]
-    end
+    Redis[("Redis Cache")]
+    PG[("PostgreSQL")]
+    ExtB(["API externa B\nwebhook destination"])
+    Obs["Grafana Stack\nLoki · Tempo · Grafana"]
 
-    subgraph worker["HookSentry.Worker"]
-        Worker["Retry · Circuit Breaker\nHMAC-SHA256 · Rate Limit"]
-    end
-
-    subgraph obs["Observability"]
-        OTel["OpenTelemetry"]
-        Tempo["Tempo\ntraces"]
-        Loki["Loki\nlogs"]
-        Grafana["Grafana"]
-    end
-
-    Target(["Target URL"])
-
-    Client -->|"REST / Ingest"| API
-    API <-->|cache| Redis
-    API -->|persist| PG
-    API -->|publish| MQ
-    MQ -->|consume| Worker
-    Worker <-->|circuit breaker state| Redis
-    Worker -->|"HTTP POST"| Target
-    API & Worker -->|"traces + logs"| OTel
-    OTel --> Tempo & Loki
-    Tempo & Loki --> Grafana
+    SPA --> API
+    ExtA -->|"ingestão"| API
+    API -->|"publish"| MQ
+    Worker -->|"consume"| MQ
+    Worker -->|"HTTP POST"| ExtB
+    API -->|"OTEL"| Obs
+    Worker -->|"OTEL"| Obs
+    Worker -->|"metadados e falhas críticas"| PG
+    Worker -->|"cache de URLs e idempotência"| Redis
+    API -->|"cache de autenticação"| Redis
+    API -->|"leitura/escrita de metadados"| PG
 ```
 
 **Assemblies:**
