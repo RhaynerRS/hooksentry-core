@@ -24,6 +24,15 @@ public class Tenant
         CreatedAt = UpdatedAt = DateTimeOffset.UtcNow;
     }
 
+    public virtual void Rename(string name)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new ArgumentException("Name cannot be empty.", nameof(name));
+
+        Name = name.Trim();
+        UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
     public virtual void UpdateSettings(int maxTrys, int circuitBreakerTimer)
     {
         if (maxTrys < 1)
