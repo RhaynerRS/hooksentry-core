@@ -7,6 +7,7 @@ using HookSentry.Api.DataTransfer.Invites.Requests;
 using HookSentry.Api.DataTransfer.Users.Responses;
 using HookSentry.Domain.Invites;
 using HookSentry.Domain.Users;
+using HookSentry.Infrastructure.RateLimiting;
 
 namespace HookSentry.Api.Features.Invites.RegisterWithInvite;
 
@@ -36,17 +37,21 @@ public class RegisterWithInviteEndpoint : IEndpoint
                 - `400 Bad Request`: invalid data (malformed email, empty password)
                 - `404 Not Found`: invite token not found
                 - `409 Conflict`: invite already used or expired; or email already registered on the platform
+                - `429 Too Many Requests`: more than 10 requests from the same IP within 1 hour
                 """)
             .AllowAnonymous()
             .Produces<UserResponse>(StatusCodes.Status201Created)
             .Produces<string>(StatusCodes.Status400BadRequest)
             .Produces(StatusCodes.Status404NotFound)
-            .Produces<string>(StatusCodes.Status409Conflict);
+            .Produces<string>(StatusCodes.Status409Conflict)
+            .Produces(StatusCodes.Status429TooManyRequests);
     }
 
     private static async Task<IResult> Handle(
         string token,
         RegisterWithInviteRequest request,
+        IPublicEndpointRateLimiter rateLimiter,
+        HttpContext httpContext,
         IPasswordHasher passwordHasher,
         IInviteTokenRepository inviteRepository,
         IUserRepository userRepository,
@@ -54,6 +59,13 @@ public class RegisterWithInviteEndpoint : IEndpoint
         ILogger<RegisterWithInviteEndpoint> logger,
         CancellationToken ct)
     {
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+        if (await rateLimiter.IsBlockedAsync("register-with-invite", ip, ct))
+            return Results.StatusCode(429);
+
+        await rateLimiter.RecordAsync("register-with-invite", ip, ct);
+
         var invite = await inviteRepository.FindByTokenAsync(token, ct);
 
         if (invite is null)

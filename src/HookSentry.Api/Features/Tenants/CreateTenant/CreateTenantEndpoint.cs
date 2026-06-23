@@ -7,6 +7,7 @@ using HookSentry.Api.DataTransfer.Tenants.Requests;
 using HookSentry.Api.DataTransfer.Tenants.Responses;
 using HookSentry.Domain.Tenants;
 using HookSentry.Domain.Users;
+using HookSentry.Infrastructure.RateLimiting;
 
 namespace HookSentry.Api.Features.Tenants.CreateTenant;
 
@@ -35,15 +36,19 @@ public class CreateTenantEndpoint : IEndpoint
                 - `201 Created`: tenant and admin created — includes the generated `webhookSecret` and admin data
                 - `400 Bad Request`: invalid data (malformed email, empty password)
                 - `409 Conflict`: a tenant with the same name already exists, or the email is already in use
+                - `429 Too Many Requests`: more than 5 requests from the same IP within 1 hour
                 """)
             .AllowAnonymous()
             .Produces<CreateTenantResponse>(StatusCodes.Status201Created)
             .Produces<string>(StatusCodes.Status400BadRequest)
-            .Produces<string>(StatusCodes.Status409Conflict);
+            .Produces<string>(StatusCodes.Status409Conflict)
+            .Produces(StatusCodes.Status429TooManyRequests);
     }
 
     private static async Task<IResult> Handle(
         CreateTenantRequest request,
+        IPublicEndpointRateLimiter rateLimiter,
+        HttpContext httpContext,
         IPasswordHasher passwordHasher,
         ITenantRepository tenantRepository,
         IUserRepository userRepository,
@@ -51,6 +56,13 @@ public class CreateTenantEndpoint : IEndpoint
         ILogger<CreateTenantEndpoint> logger,
         CancellationToken ct)
     {
+        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+
+        if (await rateLimiter.IsBlockedAsync("create-tenant", ip, ct))
+            return Results.StatusCode(429);
+
+        await rateLimiter.RecordAsync("create-tenant", ip, ct);
+
         if (InputSanitizer.ValidateName(request.Name) is { } nameErr)
             return Results.BadRequest(nameErr);
         if (InputSanitizer.ValidateEmail(request.AdminEmail) is { } emailErr)

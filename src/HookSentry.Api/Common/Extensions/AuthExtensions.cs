@@ -3,6 +3,7 @@ using HookSentry.Api.Common.Auth;
 using HookSentry.Infrastructure.ApiKeys;
 using HookSentry.Infrastructure.Auth;
 using HookSentry.Infrastructure.Events;
+using HookSentry.Infrastructure.RateLimiting;
 using Microsoft.AspNetCore.Authentication.JwtBearer;
 using Microsoft.IdentityModel.JsonWebTokens;
 using Microsoft.IdentityModel.Tokens;
@@ -17,7 +18,7 @@ public static class AuthExtensions
     {
         services.AddSingleton<IApiKeyCacheService, ApiKeyCacheService>();
         services.AddSingleton<IRefreshTokenStore, RedisRefreshTokenStore>();
-        services.AddSingleton<ILoginRateLimiter, RedisLoginRateLimiter>();
+        services.AddSingleton<IPublicEndpointRateLimiter, RedisPublicEndpointRateLimiter>();
         services.AddSingleton<IEventIdempotencyStore, RedisEventIdempotencyStore>();
         services.AddSingleton<IJwtDenylist, RedisJwtDenylist>();
 

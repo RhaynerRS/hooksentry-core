@@ -4,6 +4,7 @@ using HookSentry.Api.Common.Validation;
 using HookSentry.Domain.Security;
 using HookSentry.Domain.Users;
 using HookSentry.Infrastructure.Auth;
+using HookSentry.Infrastructure.RateLimiting;
 using HookSentry.Api.DataTransfer.Auth.Requests;
 using HookSentry.Api.DataTransfer.Auth.Responses;
 
@@ -52,7 +53,7 @@ public class LoginEndpoint : IEndpoint
         IJwtTokenService jwtTokenService,
         IPasswordHasher passwordHasher,
         IRefreshTokenStore tokenStore,
-        ILoginRateLimiter rateLimiter,
+        IPublicEndpointRateLimiter rateLimiter,
         CancellationToken ct)
     {
         if (string.IsNullOrWhiteSpace(request.Email))
@@ -66,7 +67,8 @@ public class LoginEndpoint : IEndpoint
         var normalizedEmail = request.Email.Trim().ToLowerInvariant();
         var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
-        if (await rateLimiter.IsBlockedAsync(ip, normalizedEmail, ct))
+        if (await rateLimiter.IsBlockedAsync("login", ip, ct) ||
+            await rateLimiter.IsBlockedAsync("login", normalizedEmail, ct))
             return Results.Json(
                 "Too many failed login attempts. Try again in 5 minutes.",
                 statusCode: StatusCodes.Status429TooManyRequests);
@@ -80,11 +82,15 @@ public class LoginEndpoint : IEndpoint
         if (user is null || !credentialsValid || user.Status != UserStatus.Active)
         {
             if (user is not null)
-                await rateLimiter.RecordFailureAsync(ip, normalizedEmail, ct);
+            {
+                await rateLimiter.RecordAsync("login", ip, ct);
+                await rateLimiter.RecordAsync("login", normalizedEmail, ct);
+            }
             return Results.Unauthorized();
         }
 
-        await rateLimiter.ResetAsync(ip, normalizedEmail, ct);
+        await rateLimiter.ResetAsync("login", ip, ct);
+        await rateLimiter.ResetAsync("login", normalizedEmail, ct);
 
         var (accessToken, _, expiresAt) = jwtTokenService.GenerateAccessToken(user);
         var refreshToken = jwtTokenService.GenerateRefreshToken();
