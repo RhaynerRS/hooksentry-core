@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="icon.svg" width="80" alt="HookSentry" />
+  <img src="refs/icon.svg" width="80" alt="HookSentry" />
   <h1>HookSentry</h1>
   <p><strong>Reliable webhook delivery platform built with .NET 10</strong></p>
   <p>
