@@ -65,32 +65,11 @@ dotnet test src/HookSentry.Tests
 
 ## Architecture
 
-```mermaid
-flowchart TD
-    SPA(["HookSentry SPA\nNext.js"])
-    ExtA(["API externa A\nwebhook source"])
-
-    API["HookSentry API\n.NET 10"]
-    MQ[/"Fila Processamento\nRabbitMQ"/]
-    Worker["Worker Webhooks\n.NET Background Service"]
-
-    Redis[("Redis Cache")]
-    PG[("PostgreSQL")]
-    ExtB(["API externa B\nwebhook destination"])
-    Obs["Grafana Stack\nLoki · Tempo · Grafana"]
-
-    SPA --> API
-    ExtA -->|"ingestão"| API
-    API -->|"publish"| MQ
-    Worker -->|"consume"| MQ
-    Worker -->|"HTTP POST"| ExtB
-    API -->|"OTEL"| Obs
-    Worker -->|"OTEL"| Obs
-    Worker -->|"metadados e falhas críticas"| PG
-    Worker -->|"cache de URLs e idempotência"| Redis
-    API -->|"cache de autenticação"| Redis
-    API -->|"leitura/escrita de metadados"| PG
-```
+<div align="center" style="margin-bottom:50px">
+  <br/>
+  <img src="refs/hooksentry_arqref.drawio.svg" alt="arqref" />
+  <br/>
+</div>
 
 **Assemblies:**
 
