@@ -17,7 +17,17 @@
 
 ## Getting Started
 
-Clone the repository and start the full stack:
+Two compose files are available depending on your environment:
+
+| | `docker-compose.yml` | `docker-compose-micro.yml` |
+|---|---|---|
+| **Target** | Self-hosted / dev (with observability) | Self-hosted / low-resource VPS |
+| **Resource limits** | None | CPU + memory caps on every service |
+| **Auto-restart** | `unless-stopped` on all infra | `unless-stopped` on all infra |
+| **Observability** | Loki + Tempo + Grafana included | Not included |
+| **RabbitMQ memory** | Default | Capped at 120 MiB |
+
+### Full stack (with Grafana, Loki, Tempo)
 
 ```bash
 cp .env.example .env          # fill in secrets
@@ -26,9 +36,24 @@ docker compose up -d
 
 | Service | URL |
 |---------|-----|
-| API | http://localhost:8080 |
-| Swagger UI | http://localhost:8080/swagger |
+| API | http://localhost:5143 |
+| Swagger UI | http://localhost:5143/swagger |
 | Grafana | http://localhost:3001 |
+| RabbitMQ | http://localhost:15672 |
+
+### Micro stack (self-hosted, low memory)
+
+Use this on a VPS or any machine where resource usage must be bounded. All infrastructure services restart automatically on failure.
+
+```bash
+cp .env.example .env
+docker compose -f docker-compose-micro.yml up -d
+```
+
+| Service | URL |
+|---------|-----|
+| API | http://localhost:5143 |
+| Swagger UI | http://localhost:5143/swagger |
 | RabbitMQ | http://localhost:15672 |
 
 ### Running locally (development)
