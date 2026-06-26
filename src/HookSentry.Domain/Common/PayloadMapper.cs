@@ -57,34 +57,13 @@ public static class PayloadMapper
 
     private static object? ResolveFieldPath(string path, JsonElement source)
     {
-        var segments = path.Split(':');
         var current = source;
-
-        foreach (var segment in segments)
+        foreach (var segment in path.Split(':'))
         {
-            var bracketIndex = segment.IndexOf('[');
-            if (bracketIndex >= 0)
+            if (segment.Contains('['))
             {
-                var fieldName = segment[..bracketIndex];
-                var closingBracket = segment.IndexOf(']', bracketIndex);
-                if (closingBracket < 0) return null;
-
-                var indexStr = segment[(bracketIndex + 1)..closingBracket];
-
-                if (!string.IsNullOrEmpty(fieldName))
-                {
-                    if (current.ValueKind != JsonValueKind.Object ||
-                        !current.TryGetProperty(fieldName, out current))
-                        return null;
-                }
-
-                if (!int.TryParse(indexStr, out var index) || current.ValueKind != JsonValueKind.Array)
+                if (!TryResolveBracketSegment(segment, current, out current))
                     return null;
-
-                var arr = current.EnumerateArray().ToArray();
-                if (index < 0 || index >= arr.Length) return null;
-
-                current = arr[index];
             }
             else
             {
@@ -93,8 +72,34 @@ public static class PayloadMapper
                     return null;
             }
         }
-
         return ExtractValue(current);
+    }
+
+    private static bool TryResolveBracketSegment(string segment, JsonElement current, out JsonElement result)
+    {
+        result = default;
+        var bracketIndex = segment.IndexOf('[');
+        var closingBracket = segment.IndexOf(']', bracketIndex);
+        if (closingBracket < 0) return false;
+
+        var fieldName = segment[..bracketIndex];
+        var indexStr = segment[(bracketIndex + 1)..closingBracket];
+
+        if (!string.IsNullOrEmpty(fieldName))
+        {
+            if (current.ValueKind != JsonValueKind.Object ||
+                !current.TryGetProperty(fieldName, out current))
+                return false;
+        }
+
+        if (!int.TryParse(indexStr, out var index) || current.ValueKind != JsonValueKind.Array)
+            return false;
+
+        var arr = current.EnumerateArray().ToArray();
+        if (index < 0 || index >= arr.Length) return false;
+
+        result = arr[index];
+        return true;
     }
 
     private static object? ExtractValue(JsonElement element) => element.ValueKind switch

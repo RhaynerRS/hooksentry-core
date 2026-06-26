@@ -64,11 +64,8 @@ public class UpdateDestinationEndpoint : IEndpoint
 
         var destination = await destinationRepository.FindAsync(id, ct);
 
-        if (destination is null)
-            return Results.NotFound();
-
-        if (destination.TenantId != tenantId)
-            return Results.Forbid();
+        if (destination is null) return Results.NotFound();
+        if (destination.TenantId != tenantId) return Results.Forbid();
 
         try
         {
@@ -78,47 +75,8 @@ public class UpdateDestinationEndpoint : IEndpoint
             if (request.ServerRateLimit.HasValue)
                 destination.SetServerRateLimit(request.ServerRateLimit.Value);
 
-            if (request.Status is not null)
-            {
-                switch (request.Status.ToLowerInvariant())
-                {
-                    case "active":
-                        destination.Activate();
-                        break;
-                    case "inactive":
-                        destination.Deactivate();
-                        break;
-                    case "suspended":
-                        return Results.BadRequest(
-                            "Status 'suspended' is managed by the circuit breaker (RF-011). Use 'active' or 'inactive'.");
-                    default:
-                        return Results.BadRequest(
-                            $"Invalid status '{request.Status}'. Accepted values: 'active', 'inactive'.");
-                }
-            }
-
-            if (request.RemoveAuth == true)
-            {
-                destination.SetAuth(null, null);
-            }
-            else if (request.AuthType is not null || request.Credentials.HasValue)
-            {
-                if (request.AuthType is null)
-                    return Results.BadRequest("'authType' is required when 'credentials' is provided.");
-
-                if (!request.Credentials.HasValue)
-                    return Results.BadRequest("'credentials' is required when 'authType' is provided.");
-
-                if (!Enum.TryParse<DestinationAuthType>(request.AuthType, ignoreCase: true, out var parsedType))
-                    return Results.BadRequest(
-                        $"Invalid AuthType '{request.AuthType}'. Accepted values: ApiKey, BearerToken, JwtBearer, BasicAuth.");
-
-                var validationError = CredentialValidator.Validate(parsedType, request.Credentials.Value);
-                if (validationError is not null)
-                    return Results.BadRequest(validationError);
-
-                destination.SetAuth(parsedType, encryption.Encrypt(request.Credentials.Value.GetRawText()));
-            }
+            if (ApplyStatus(destination, request.Status) is { } statusErr) return statusErr;
+            if (ApplyAuth(destination, request, encryption) is { } authErr) return authErr;
         }
         catch (ArgumentException ex)
         {
@@ -126,7 +84,6 @@ public class UpdateDestinationEndpoint : IEndpoint
         }
 
         await uow.CommitAsync(ct);
-
         await destinationCache.RemoveAsync(destination.Id, ct);
 
         logger.LogInformation(
@@ -134,5 +91,51 @@ public class UpdateDestinationEndpoint : IEndpoint
             tenantId, id, user.GetEmail());
 
         return Results.Ok(DestinationResponse.From(destination));
+    }
+
+    private static IResult? ApplyStatus(DestinationUrl destination, string? status)
+    {
+        if (status is null) return null;
+        return status.ToLowerInvariant() switch
+        {
+            "active" => Activate(destination),
+            "inactive" => Deactivate(destination),
+            "suspended" => Results.BadRequest(
+                "Status 'suspended' is managed by the circuit breaker (RF-011). Use 'active' or 'inactive'."),
+            _ => Results.BadRequest(
+                $"Invalid status '{status}'. Accepted values: 'active', 'inactive'.")
+        };
+    }
+
+    private static IResult? Activate(DestinationUrl destination) { destination.Activate(); return null; }
+    private static IResult? Deactivate(DestinationUrl destination) { destination.Deactivate(); return null; }
+
+    private static IResult? ApplyAuth(
+        DestinationUrl destination, UpdateDestinationRequest request, ICredentialEncryptionService encryption)
+    {
+        if (request.RemoveAuth == true)
+        {
+            destination.SetAuth(null, null);
+            return null;
+        }
+
+        if (request.AuthType is null && !request.Credentials.HasValue) return null;
+
+        if (request.AuthType is null)
+            return Results.BadRequest("'authType' is required when 'credentials' is provided.");
+
+        if (!request.Credentials.HasValue)
+            return Results.BadRequest("'credentials' is required when 'authType' is provided.");
+
+        if (!Enum.TryParse<DestinationAuthType>(request.AuthType, ignoreCase: true, out var parsedType))
+            return Results.BadRequest(
+                $"Invalid AuthType '{request.AuthType}'. Accepted values: ApiKey, BearerToken, JwtBearer, BasicAuth.");
+
+        var validationError = CredentialValidator.Validate(parsedType, request.Credentials.Value);
+        if (validationError is not null)
+            return Results.BadRequest(validationError);
+
+        destination.SetAuth(parsedType, encryption.Encrypt(request.Credentials.Value.GetRawText()));
+        return null;
     }
 }

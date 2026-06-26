@@ -8,7 +8,7 @@ public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logge
     public async ValueTask<bool> TryHandleAsync(
         HttpContext httpContext,
         Exception exception,
-        CancellationToken ct)
+        CancellationToken cancellationToken)
     {
         logger.LogError(exception,
             "Unhandled exception. TraceId={TraceId} Method={Method} Path={Path}",
@@ -23,7 +23,7 @@ public sealed class GlobalExceptionHandler(ILogger<GlobalExceptionHandler> logge
             Status = StatusCodes.Status500InternalServerError,
             Title = "Internal Server Error",
             Detail = "An unexpected error occurred.",
-        }, ct);
+        }, cancellationToken);
 
         return true;
     }

@@ -10,12 +10,4 @@ public class PaginationRequest
     public SortOrder TpOrd { get; set; } = SortOrder.Desc;
 
     public PaginationRequest() { }
-
-    public PaginationRequest(int qt = 10, int pg = 1, string cpOrd = "id", SortOrder tpOrd = SortOrder.Desc)
-    {
-        Qt = qt;
-        Pg = pg;
-        CpOrd = cpOrd;
-        TpOrd = tpOrd;
-    }
 }
