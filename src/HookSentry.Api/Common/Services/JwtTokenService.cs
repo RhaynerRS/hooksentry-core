@@ -2,12 +2,14 @@ using System.IdentityModel.Tokens.Jwt;
 using System.Security.Claims;
 using System.Security.Cryptography;
 using System.Text;
+using HookSentry.Api.Common.Options;
 using HookSentry.Domain.Users;
+using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 
 namespace HookSentry.Api.Common.Services;
 
-public class JwtTokenService(IConfiguration configuration) : IJwtTokenService
+public class JwtTokenService(IOptions<JwtOptions> jwtOptions) : IJwtTokenService
 {
     private const int AccessTokenTtlMinutes = 15;
 
@@ -15,8 +17,9 @@ public class JwtTokenService(IConfiguration configuration) : IJwtTokenService
     {
         var jti = Guid.NewGuid().ToString();
         var expiresAt = DateTimeOffset.UtcNow.AddMinutes(AccessTokenTtlMinutes);
+        var opts = jwtOptions.Value;
 
-        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(configuration["Jwt:Key"]!));
+        var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(opts.Key));
         var credentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
 
         var claims = new[]
@@ -29,8 +32,8 @@ public class JwtTokenService(IConfiguration configuration) : IJwtTokenService
         };
 
         var token = new JwtSecurityToken(
-            issuer: configuration["Jwt:Issuer"],
-            audience: configuration["Jwt:Audience"],
+            issuer: opts.Issuer,
+            audience: opts.Audience,
             claims: claims,
             expires: expiresAt.UtcDateTime,
             signingCredentials: credentials);

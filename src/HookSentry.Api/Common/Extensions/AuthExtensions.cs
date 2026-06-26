@@ -1,5 +1,6 @@
 using System.Text;
 using HookSentry.Api.Common.Auth;
+using HookSentry.Api.Common.Options;
 using HookSentry.Infrastructure.ApiKeys;
 using HookSentry.Infrastructure.Auth;
 using HookSentry.Infrastructure.Events;
@@ -16,11 +17,18 @@ public static class AuthExtensions
 
     public static IServiceCollection AddJwtAndApiKeyAuth(this IServiceCollection services, IConfiguration configuration)
     {
+        services.AddOptions<JwtOptions>()
+            .BindConfiguration("Jwt")
+            .ValidateDataAnnotations()
+            .ValidateOnStart();
+
         services.AddSingleton<IApiKeyCacheService, ApiKeyCacheService>();
         services.AddSingleton<IRefreshTokenStore, RedisRefreshTokenStore>();
         services.AddSingleton<IPublicEndpointRateLimiter, RedisPublicEndpointRateLimiter>();
         services.AddSingleton<IEventIdempotencyStore, RedisEventIdempotencyStore>();
         services.AddSingleton<IJwtDenylist, RedisJwtDenylist>();
+
+        var jwtSection = configuration.GetSection("Jwt");
 
         services
             .AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
@@ -32,10 +40,10 @@ public static class AuthExtensions
                     ValidateAudience = true,
                     ValidateLifetime = true,
                     ValidateIssuerSigningKey = true,
-                    ValidIssuer = configuration["Jwt:Issuer"],
-                    ValidAudience = configuration["Jwt:Audience"],
+                    ValidIssuer = jwtSection["Issuer"],
+                    ValidAudience = jwtSection["Audience"],
                     IssuerSigningKey = new SymmetricSecurityKey(
-                        Encoding.UTF8.GetBytes(configuration["Jwt:Key"]!)),
+                        Encoding.UTF8.GetBytes(jwtSection["Key"]!)),
                     ValidAlgorithms = [SecurityAlgorithms.HmacSha256]
                 };
 

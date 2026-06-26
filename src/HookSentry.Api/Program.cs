@@ -9,15 +9,6 @@ using Microsoft.Extensions.Options;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var jwtKey = builder.Configuration["Jwt:Key"]
-    ?? throw new InvalidOperationException(
-        "Jwt:Key não configurado. Defina a variável de ambiente Jwt__Key ou a chave em appsettings.");
-
-if (System.Text.Encoding.UTF8.GetByteCount(jwtKey) < 64)
-    throw new InvalidOperationException(
-        "Jwt:Key deve ter pelo menos 64 bytes (512 bits). " +
-        "Gere uma chave segura: openssl rand -base64 64");
-
 builder.Services.ConfigureHttpJsonOptions(options =>
     options.SerializerOptions.Converters.Add(new JsonStringEnumConverter()));
 
