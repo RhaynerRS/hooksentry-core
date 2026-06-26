@@ -4,7 +4,6 @@ using System.Security.Claims;
 using HookSentry.Api.Common.DTOs;
 using HookSentry.Api.Common.Endpoints;
 using HookSentry.Api.Common.Extensions;
-using HookSentry.Api.DataTransfer.Destinations.Requests;
 using HookSentry.Api.DataTransfer.Destinations.Responses;
 using HookSentry.Domain.Destinations;
 using NHibernate.Linq;
@@ -39,7 +38,7 @@ public class GetDestinationsEndpoint : IEndpoint
     }
 
     private static async Task<IResult> Handle(
-        [AsParameters] GetDestinationsRequest request,
+        [AsParameters] PaginationRequest request,
         ClaimsPrincipal user,
         IDestinationUrlRepository destinationRepository,
         CancellationToken ct)

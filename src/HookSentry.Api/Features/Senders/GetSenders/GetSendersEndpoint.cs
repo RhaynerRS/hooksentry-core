@@ -4,7 +4,6 @@ using System.Security.Claims;
 using HookSentry.Api.Common.DTOs;
 using HookSentry.Api.Common.Endpoints;
 using HookSentry.Api.Common.Extensions;
-using HookSentry.Api.DataTransfer.Senders.Requests;
 using HookSentry.Api.DataTransfer.Senders.Responses;
 using HookSentry.Domain.Destinations;
 using HookSentry.Domain.Senders;
@@ -49,7 +48,7 @@ public class GetSendersEndpoint : IEndpoint
 
     private static async Task<IResult> Handle(
         Guid destinationId,
-        [AsParameters] GetSendersRequest request,
+        [AsParameters] PaginationRequest request,
         ClaimsPrincipal user,
         IDestinationUrlRepository destinationRepository,
         IWebhookSenderRepository senderRepository,

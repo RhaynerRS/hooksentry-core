@@ -42,6 +42,8 @@ public class LoginEndpoint : IEndpoint
             .Produces<string>(StatusCodes.Status429TooManyRequests);
     }
 
+    private const string LoginAction = "login";
+
     // Dummy hash used to equalize response time when the email is not found,
     // preventing timing-based user enumeration. Format: base64(16-byte salt):base64(32-byte hash).
     private const string DummyHash = "AAAAAAAAAAAAAAAAAAAAAA==:AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=";
@@ -67,8 +69,8 @@ public class LoginEndpoint : IEndpoint
         var normalizedEmail = request.Email.Trim().ToLowerInvariant();
         var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
 
-        if (await rateLimiter.IsBlockedAsync("login", ip, ct) ||
-            await rateLimiter.IsBlockedAsync("login", normalizedEmail, ct))
+        if (await rateLimiter.IsBlockedAsync(LoginAction, ip, ct) ||
+            await rateLimiter.IsBlockedAsync(LoginAction, normalizedEmail, ct))
             return Results.Json(
                 "Too many failed login attempts. Try again in 5 minutes.",
                 statusCode: StatusCodes.Status429TooManyRequests);
@@ -83,14 +85,14 @@ public class LoginEndpoint : IEndpoint
         {
             if (user is not null)
             {
-                await rateLimiter.RecordAsync("login", ip, ct);
-                await rateLimiter.RecordAsync("login", normalizedEmail, ct);
+                await rateLimiter.RecordAsync(LoginAction, ip, ct);
+                await rateLimiter.RecordAsync(LoginAction, normalizedEmail, ct);
             }
             return Results.Unauthorized();
         }
 
-        await rateLimiter.ResetAsync("login", ip, ct);
-        await rateLimiter.ResetAsync("login", normalizedEmail, ct);
+        await rateLimiter.ResetAsync(LoginAction, ip, ct);
+        await rateLimiter.ResetAsync(LoginAction, normalizedEmail, ct);
 
         var (accessToken, _, expiresAt) = jwtTokenService.GenerateAccessToken(user);
         var refreshToken = jwtTokenService.GenerateRefreshToken();
