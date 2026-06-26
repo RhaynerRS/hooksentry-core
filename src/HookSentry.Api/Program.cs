@@ -40,4 +40,4 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapEndpoints();
 
-app.Run();
+await app.RunAsync();
