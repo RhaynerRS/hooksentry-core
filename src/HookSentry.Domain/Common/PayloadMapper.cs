@@ -85,11 +85,10 @@ public static class PayloadMapper
         var fieldName = segment[..bracketIndex];
         var indexStr = segment[(bracketIndex + 1)..closingBracket];
 
-        if (!string.IsNullOrEmpty(fieldName))
+        if (!string.IsNullOrEmpty(fieldName) && (current.ValueKind != JsonValueKind.Object ||
+                !current.TryGetProperty(fieldName, out current)))
         {
-            if (current.ValueKind != JsonValueKind.Object ||
-                !current.TryGetProperty(fieldName, out current))
-                return false;
+            return false;
         }
 
         if (!int.TryParse(indexStr, out var index) || current.ValueKind != JsonValueKind.Array)
