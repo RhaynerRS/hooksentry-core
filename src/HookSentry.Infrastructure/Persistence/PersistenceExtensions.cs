@@ -18,7 +18,8 @@ namespace HookSentry.Infrastructure.Persistence;
 
 public static class PersistenceExtensions
 {
-    public static IServiceCollection AddPersistence(this IServiceCollection services, IConfiguration configuration)
+    public static IServiceCollection AddPersistence(this IServiceCollection services, IConfiguration configuration,
+        params System.Reflection.Assembly[] extraMappingAssemblies)
     {
         var connectionString = configuration.GetConnectionString("DefaultConnection")
             ?? throw new InvalidOperationException("Connection string 'DefaultConnection' not found.");
@@ -26,9 +27,14 @@ public static class PersistenceExtensions
         var sessionFactory = Fluently.Configure()
             .Database(PostgreSQLConfiguration.PostgreSQL82
                 .ConnectionString(connectionString))
-            .Mappings(m => m.FluentMappings
-                .AddFromAssemblyOf<TenantMap>()
-                .Conventions.Add<DateTimeOffsetConvention>())
+            .Mappings(m =>
+            {
+                m.FluentMappings
+                    .AddFromAssemblyOf<TenantMap>()
+                    .Conventions.Add<DateTimeOffsetConvention>();
+                foreach (var assembly in extraMappingAssemblies)
+                    m.FluentMappings.AddFromAssembly(assembly);
+            })
             .BuildSessionFactory();
 
         services.AddSingleton(sessionFactory);
