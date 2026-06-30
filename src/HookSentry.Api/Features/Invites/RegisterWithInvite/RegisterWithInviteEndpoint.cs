@@ -89,7 +89,7 @@ public class RegisterWithInviteEndpoint : IEndpoint
         catch (InvalidOperationException ex) { return Results.Conflict(ex.Message); }
 
         User newUser;
-        try { newUser = new User(invite.TenantId, request.Email, passwordHash, UserRole.Developer); }
+        try { newUser = new User(invite.TenantId, request.Email, passwordHash, invite.TargetRole); }
         catch (ArgumentException ex) { return Results.BadRequest(ex.Message); }
 
         await userRepository.AddAsync(newUser, ct);

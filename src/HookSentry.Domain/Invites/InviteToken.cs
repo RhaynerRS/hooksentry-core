@@ -1,4 +1,5 @@
 using System.Security.Cryptography;
+using HookSentry.Domain.Users;
 
 namespace HookSentry.Domain.Invites;
 
@@ -8,6 +9,7 @@ public class InviteToken
     public virtual int Version { get; protected set; }
     public virtual Guid TenantId { get; protected set; }
     public virtual string Token { get; protected set; } = default!;
+    public virtual UserRole TargetRole { get; protected set; }
     public virtual DateTimeOffset ExpiresAt { get; protected set; }
     public virtual DateTimeOffset? UsedAt { get; protected set; }
     public virtual InviteTokenStatus Status { get; protected set; }
@@ -16,10 +18,11 @@ public class InviteToken
 
     protected InviteToken() { }
 
-    public InviteToken(Guid tenantId, int validityDays = 7)
+    public InviteToken(Guid tenantId, int validityDays = 7, UserRole targetRole = UserRole.Developer)
     {
         SetTenantId(tenantId);
         SetValidityDays(validityDays);
+        SetTargetRole(targetRole);
         Token = GenerateSecureToken();
         Status = InviteTokenStatus.Pending;
         Id = Guid.NewGuid();
@@ -40,6 +43,15 @@ public class InviteToken
         if (validityDays > 30)
             throw new ArgumentOutOfRangeException(nameof(validityDays), "Validity cannot exceed 30 days.");
         ExpiresAt = DateTimeOffset.UtcNow.AddDays(validityDays);
+    }
+
+    private void SetTargetRole(UserRole targetRole)
+    {
+        if (targetRole == UserRole.Owner)
+            throw new ArgumentException("Owner role cannot be assigned via invite.", nameof(targetRole));
+        if (!Enum.IsDefined(targetRole))
+            throw new ArgumentOutOfRangeException(nameof(targetRole), "Invalid role.");
+        TargetRole = targetRole;
     }
 
     public virtual void Use()

@@ -52,6 +52,7 @@ public class CreateTenantEndpoint : IEndpoint
         IPasswordHasher passwordHasher,
         ITenantRepository tenantRepository,
         IUserRepository userRepository,
+        IEnumerable<ITenantCreatedPostProcessor> postProcessors,
         IUnitOfWorkFactory uowFactory,
         ILogger<CreateTenantEndpoint> logger,
         CancellationToken ct)
@@ -91,6 +92,10 @@ public class CreateTenantEndpoint : IEndpoint
         await using var uow = uowFactory.Create();
         await tenantRepository.AddAsync(tenant, ct);
         await userRepository.AddAsync(admin, ct);
+
+        foreach (var processor in postProcessors)
+            await processor.ProcessAsync(tenant.Id, admin.Id, ct);
+
         try
         {
             await uow.CommitAsync(ct);

@@ -28,7 +28,7 @@ public class JwtTokenService(IOptions<JwtOptions> jwtOptions) : IJwtTokenService
             new Claim(JwtRegisteredClaimNames.Jti, jti),
             new Claim(JwtRegisteredClaimNames.Email, user.Email),
             new Claim("tenant_id", user.TenantId.ToString()),
-            new Claim("role", user.Role.ToString())
+            new Claim("role", ((int)user.Role).ToString())
         };
 
         var token = new JwtSecurityToken(

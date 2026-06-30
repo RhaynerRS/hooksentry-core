@@ -77,11 +77,20 @@ public class UpdateUserEndpoint : IEndpoint
                 return Results.Conflict($"Email '{request.Email}' is already in use.");
         }
 
+        if (request.Role is not null)
+        {
+            var callerRole = principal.GetUserRole();
+            if (callerRole != UserRole.Admin && callerRole != UserRole.Owner)
+                return Results.Forbid();
+            if (request.Role == UserRole.Owner && callerRole != UserRole.Owner)
+                return Results.Forbid();
+        }
+
         try
         {
             if (request.Email is not null) user.SetEmail(request.Email);
             if (request.Password is not null) user.SetPasswordHash(passwordHasher.Hash(request.Password));
-            if (request.Role is not null && principal.GetUserRole() == UserRole.Admin) user.SetRole(request.Role.Value);
+            if (request.Role is not null) user.SetRole(request.Role.Value);
             if (request.Status == UserStatus.Active) user.Activate();
             else if (request.Status == UserStatus.Inactive) user.Deactivate();
         }
