@@ -27,8 +27,8 @@ public class CreateTenantEndpoint : IEndpoint
 
                 **Body:**
                 - `name` *(required)*: unique organization name
-                - `adminEmail` *(required)*: initial admin user email — unique on the platform
-                - `adminPassword` *(required)*: admin password — stored as hash
+                - `ownerEmail` *(required)*: initial owner user email — unique on the platform
+                - `ownerPassword` *(required)*: owner password — stored as hash
                 - `maxTrys` *(optional, default: 10)*: maximum number of attempts before DLQ
                 - `circuitBreakerTimer` *(optional, default: 300)*: duration in seconds of the Circuit Breaker OPEN state
 
@@ -66,23 +66,23 @@ public class CreateTenantEndpoint : IEndpoint
 
         if (InputSanitizer.ValidateName(request.Name) is { } nameErr)
             return Results.BadRequest(nameErr);
-        if (InputSanitizer.ValidateEmail(request.AdminEmail) is { } emailErr)
+        if (InputSanitizer.ValidateEmail(request.OwnerEmail) is { } emailErr)
             return Results.BadRequest(emailErr);
 
         if (await tenantRepository.NameExistsAsync(request.Name, ct))
             return Results.Conflict($"Tenant '{request.Name}' already exists.");
 
-        var normalizedEmail = request.AdminEmail.Trim().ToLowerInvariant();
+        var normalizedEmail = request.OwnerEmail.Trim().ToLowerInvariant();
 
         if (await userRepository.EmailExistsAsync(normalizedEmail, ct))
-            return Results.Conflict($"Email '{request.AdminEmail}' is already in use.");
+            return Results.Conflict($"Email '{request.OwnerEmail}' is already in use.");
 
         Tenant tenant;
         try { tenant = new Tenant(request.Name, request.MaxTrys, request.CircuitBreakerTimer); }
         catch (ArgumentException ex) { return Results.BadRequest(ex.Message); }
 
         string passwordHash;
-        try { passwordHash = passwordHasher.Hash(request.AdminPassword); }
+        try { passwordHash = passwordHasher.Hash(request.OwnerPassword); }
         catch (ArgumentException ex) { return Results.BadRequest(ex.Message); }
 
         User admin;
@@ -106,7 +106,7 @@ public class CreateTenantEndpoint : IEndpoint
         }
 
         logger.LogInformation(
-            "Tenant provisioned. TenantId={TenantId} Name={TenantName} AdminId={AdminId} AdminEmail={AdminEmail}",
+            "Tenant provisioned. TenantId={TenantId} Name={TenantName} OwnerId={OwnerId} OwnerEmail={OwnerEmail}",
             tenant.Id, tenant.Name, admin.Id, admin.Email);
 
         return Results.Created(

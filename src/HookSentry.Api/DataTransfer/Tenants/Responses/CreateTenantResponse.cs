@@ -9,7 +9,7 @@ public record CreateTenantResponse(
     int MaxTrys,
     int CircuitBreakerTimer,
     DateTimeOffset TenantCreatedAt,
-    Guid AdminUserId,
-    string AdminEmail,
-    UserRole AdminRole,
-    DateTimeOffset AdminCreatedAt);
+    Guid OwnerUserId,
+    string OwnerEmail,
+    UserRole OwnerRole,
+    DateTimeOffset OwnerCreatedAt);
