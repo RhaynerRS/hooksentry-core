@@ -1,5 +1,6 @@
 using HookSentry.Api.Common.Endpoints;
 using HookSentry.Api.Common.Extensions;
+using HookSentry.Api.Common.Tenants;
 using HookSentry.Api.Common.Validation;
 using HookSentry.Domain;
 using HookSentry.Domain.Security;
@@ -39,8 +40,12 @@ public class CreateTenantEndpoint : IEndpoint
                 - `201 Created`: tenant and owner created — includes the generated `webhookSecret` and owner data
                 - `400 Bad Request`: invalid data (malformed email, empty password)
                 - `409 Conflict`: a tenant with the same name already exists, or the email is already in use
-                - `422 Unprocessable Entity`: disposable email address rejected
-                - `429 Too Many Requests`: rate limit or device fingerprint limit reached
+                - `422 Unprocessable Entity`: rejected by a registration guard (e.g. disposable email — cloud only)
+                - `429 Too Many Requests`: more than 5 requests from the same IP within 1 hour
+
+                **Optional anti-abuse fields (cloud only, ignored self-hosted):**
+                - `deviceFingerprint`: browser fingerprint collected by the site
+                - `cfTurnstileToken`: Cloudflare Turnstile token
                 """)
             .AllowAnonymous()
             .Produces<CreateTenantResponse>(StatusCodes.Status201Created)
@@ -59,6 +64,7 @@ public class CreateTenantEndpoint : IEndpoint
         ITenantRepository tenantRepository,
         IUserRepository userRepository,
         IEnumerable<ITenantCreatedPostProcessor> postProcessors,
+        IEnumerable<ITenantCreationGuard> creationGuards,
         IUnitOfWorkFactory uowFactory,
         ILogger<CreateTenantEndpoint> logger,
         CancellationToken ct)
@@ -95,6 +101,13 @@ public class CreateTenantEndpoint : IEndpoint
             return Results.BadRequest(nameErr);
         if (InputSanitizer.ValidateEmail(request.OwnerEmail) is { } emailErr)
             return Results.BadRequest(emailErr);
+
+        var guardContext = new TenantCreationContext(
+            request.Name, request.OwnerEmail, request.DeviceFingerprint, request.CfTurnstileToken, ip);
+
+        foreach (var guard in creationGuards)
+            if (await guard.CheckAsync(guardContext, ct) is { } guardResult)
+                return guardResult;
 
         if (await tenantRepository.NameExistsAsync(request.Name, ct))
             return Results.Conflict($"Tenant '{request.Name}' already exists.");

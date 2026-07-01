@@ -6,4 +6,5 @@ public record CreateTenantRequest(
     string OwnerPassword,
     int MaxTrys = 10,
     int CircuitBreakerTimer = 300,
-    string? DeviceFingerprint = null);
+    string? DeviceFingerprint = null,
+    string? CfTurnstileToken = null);
