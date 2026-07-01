@@ -7,7 +7,9 @@ using HookSentry.Api.DataTransfer.Tenants.Requests;
 using HookSentry.Api.DataTransfer.Tenants.Responses;
 using HookSentry.Domain.Tenants;
 using HookSentry.Domain.Users;
+using HookSentry.Infrastructure.AbuseProtection;
 using HookSentry.Infrastructure.RateLimiting;
+using Microsoft.Extensions.Options;
 
 namespace HookSentry.Api.Features.Tenants.CreateTenant;
 
@@ -18,9 +20,9 @@ public class CreateTenantEndpoint : IEndpoint
         app.MapPost("/api/v1/tenants", Handle)
             .WithName("CreateTenant")
             .WithTags("Tenants")
-            .WithSummary("Registers a new tenant with an initial admin user")
+            .WithSummary("Registers a new tenant with an initial owner user")
             .WithDescription("""
-                Creates a new tenant and its first admin user in a single atomic operation.
+                Creates a new tenant and its first owner user in a single atomic operation.
                 Automatically generates the `webhook_secret` (HMAC-SHA256).
 
                 **No authentication required.**
@@ -31,17 +33,20 @@ public class CreateTenantEndpoint : IEndpoint
                 - `ownerPassword` *(required)*: owner password — stored as hash
                 - `maxTrys` *(optional, default: 10)*: maximum number of attempts before DLQ
                 - `circuitBreakerTimer` *(optional, default: 300)*: duration in seconds of the Circuit Breaker OPEN state
+                - `deviceFingerprint` *(optional)*: browser fingerprint (FingerprintJS visitorId) — used for abuse prevention
 
                 **Return codes:**
-                - `201 Created`: tenant and admin created — includes the generated `webhookSecret` and admin data
+                - `201 Created`: tenant and owner created — includes the generated `webhookSecret` and owner data
                 - `400 Bad Request`: invalid data (malformed email, empty password)
                 - `409 Conflict`: a tenant with the same name already exists, or the email is already in use
-                - `429 Too Many Requests`: more than 5 requests from the same IP within 1 hour
+                - `422 Unprocessable Entity`: disposable email address rejected
+                - `429 Too Many Requests`: rate limit or device fingerprint limit reached
                 """)
             .AllowAnonymous()
             .Produces<CreateTenantResponse>(StatusCodes.Status201Created)
             .Produces<string>(StatusCodes.Status400BadRequest)
             .Produces<string>(StatusCodes.Status409Conflict)
+            .Produces(StatusCodes.Status422UnprocessableEntity)
             .Produces(StatusCodes.Status429TooManyRequests);
     }
 
@@ -49,6 +54,7 @@ public class CreateTenantEndpoint : IEndpoint
         CreateTenantRequest request,
         IPublicEndpointRateLimiter rateLimiter,
         HttpContext httpContext,
+        IOptions<RegistrationAbuseOptions> abuseOptions,
         IPasswordHasher passwordHasher,
         ITenantRepository tenantRepository,
         IUserRepository userRepository,
@@ -57,12 +63,33 @@ public class CreateTenantEndpoint : IEndpoint
         ILogger<CreateTenantEndpoint> logger,
         CancellationToken ct)
     {
-        var ip = httpContext.Connection.RemoteIpAddress?.ToString() ?? "unknown";
+        var opts = abuseOptions.Value;
+        var ip   = httpContext.GetClientIp();
 
-        if (await rateLimiter.IsBlockedAsync("create-tenant", ip, ct))
-            return Results.StatusCode(429);
+        if (opts.RegistrationRateLimitEnabled)
+        {
+            if (await rateLimiter.IsBlockedAsync("create-tenant", ip, ct))
+                return Results.StatusCode(429);
+        }
 
-        await rateLimiter.RecordAsync("create-tenant", ip, ct);
+        if (opts.DisposableEmailBlockEnabled)
+        {
+            var emailChecker = httpContext.RequestServices.GetService<IDisposableEmailChecker>();
+            if (emailChecker is not null && await emailChecker.IsDisposableAsync(request.OwnerEmail, ct))
+                return Results.UnprocessableEntity(new
+                {
+                    error   = "disposable_email",
+                    message = "Please use a permanent email address."
+                });
+        }
+
+        var fingerprintGuard = httpContext.RequestServices.GetService<IFingerprintGuard>();
+        if (opts.FingerprintEnabled && fingerprintGuard is not null && !string.IsNullOrWhiteSpace(request.DeviceFingerprint))
+        {
+            var fpCheck = await fingerprintGuard.CheckAsync(request.DeviceFingerprint, ct);
+            if (fpCheck.Blocked)
+                return Results.StatusCode(429);
+        }
 
         if (InputSanitizer.ValidateName(request.Name) is { } nameErr)
             return Results.BadRequest(nameErr);
@@ -104,6 +131,12 @@ public class CreateTenantEndpoint : IEndpoint
         {
             return Results.Conflict($"A tenant with this name or email already exists.");
         }
+
+        if (opts.FingerprintEnabled && fingerprintGuard is not null && !string.IsNullOrWhiteSpace(request.DeviceFingerprint))
+            await fingerprintGuard.RecordAsync(request.DeviceFingerprint, tenant.Id, ct);
+
+        if (opts.RegistrationRateLimitEnabled)
+            await rateLimiter.RecordAsync("create-tenant", ip, ct);
 
         logger.LogInformation(
             "Tenant provisioned. TenantId={TenantId} Name={TenantName} OwnerId={OwnerId} OwnerEmail={OwnerEmail}",

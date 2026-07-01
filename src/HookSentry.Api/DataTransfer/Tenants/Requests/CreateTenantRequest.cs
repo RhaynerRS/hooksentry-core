@@ -5,4 +5,5 @@ public record CreateTenantRequest(
     string OwnerEmail,
     string OwnerPassword,
     int MaxTrys = 10,
-    int CircuitBreakerTimer = 300);
+    int CircuitBreakerTimer = 300,
+    string? DeviceFingerprint = null);

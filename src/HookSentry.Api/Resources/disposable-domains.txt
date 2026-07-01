@@ -1,0 +1,22 @@
+# Disposable email domain blocklist
+# Source: https://github.com/disposable-email-domains/disposable-email-domains
+# Update via: scripts/update-disposable-domains.sh
+mailinator.com
+10minutemail.com
+guerrillamail.com
+tempmail.com
+throwaway.email
+yopmail.com
+sharklasers.com
+guerrillamailblock.com
+grr.la
+guerrillamail.info
+guerrillamail.biz
+guerrillamail.de
+guerrillamail.net
+guerrillamail.org
+spam4.me
+trashmail.com
+trashmail.me
+trashmail.net
+dispostable.com
