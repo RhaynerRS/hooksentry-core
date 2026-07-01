@@ -104,6 +104,13 @@ public sealed class WebhookDeliveryConsumer(
                 return;
             }
 
+            var evento = await LoadEventAsync(message.EventId, ct);
+            if (evento is null || evento.Status == EventStatus.Cancelled)
+            {
+                await channel.BasicNackAsync(ea.DeliveryTag, multiple: false, requeue: false, cancellationToken: ct);
+                return;
+            }
+
             _logEventReceived(logger, message.EventId, message.DestinationUrl, message.RetryCount, null);
 
             activity = _source.StartActivity("webhook.delivery.attempt");
@@ -162,6 +169,7 @@ public sealed class WebhookDeliveryConsumer(
         try
         {
             using var httpClient = httpClientFactory.Create();
+            httpClient.Timeout = TimeSpan.FromSeconds(options.Value.DeliveryTimeoutSeconds);
             await ApplyAuthAsync(httpClient, message, ct);
             httpClient.DefaultRequestHeaders.Add(
                 "X-HookSentry-Signature", ComputeSignature(message.WebhookSecret, message.Payload));
@@ -348,6 +356,13 @@ public sealed class WebhookDeliveryConsumer(
 
     private Task MarkAuthenticationFailedAsync(Guid eventId, CancellationToken ct) =>
         UpdateEventAsync(eventId, e => e.MarkAuthenticationFailed(), ct);
+
+    private async Task<Event?> LoadEventAsync(Guid eventId, CancellationToken ct)
+    {
+        await using var scope = scopeFactory.CreateAsyncScope();
+        var repo = scope.ServiceProvider.GetRequiredService<IEventRepository>();
+        return await repo.FindAsync(eventId, ct);
+    }
 
     private async Task UpdateEventAsync(Guid eventId, Action<Event> update, CancellationToken ct)
     {

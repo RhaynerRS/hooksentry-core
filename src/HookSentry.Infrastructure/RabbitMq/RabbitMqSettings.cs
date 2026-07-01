@@ -9,4 +9,5 @@ public sealed class RabbitMqSettings
     public string VirtualHost { get; init; } = "/";
     public string EventsExchange { get; init; } = "hooksentry.events";
     public ushort PrefetchCount { get; init; } = 100;
+    public int DeliveryTimeoutSeconds { get; init; } = 30;
 }
