@@ -13,6 +13,8 @@ builder.Services.AddObservability(builder.Configuration);
 builder.Services.Configure<CredentialEncryptionSettings>(
     builder.Configuration.GetSection("CredentialEncryption"));
 builder.Services.AddSingleton<HookSentry.Domain.Security.ICredentialEncryptionService, AesCredentialEncryptionService>();
+builder.Services.AddSingleton<HookSentry.Domain.Security.BlockedIpPolicy>();
+builder.Services.AddSingleton<ISafeHttpClientFactory, SafeHttpClientFactory>();
 builder.Services.AddHostedService<WebhookDeliveryConsumer>();
 
 var host = builder.Build();

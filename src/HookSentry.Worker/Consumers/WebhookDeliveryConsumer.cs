@@ -9,6 +9,7 @@ using HookSentry.Domain;
 using HookSentry.Domain.Destinations;
 using HookSentry.Domain.Events;
 using HookSentry.Infrastructure.RabbitMq;
+using HookSentry.Infrastructure.Security;
 using HookSentry.Domain.Security;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Options;
@@ -20,7 +21,8 @@ namespace HookSentry.Worker.Consumers;
 public sealed class WebhookDeliveryConsumer(
     RabbitMqConnection mqConnection,
     IOptions<RabbitMqSettings> options,
-    ICredentialEncryptionService encryption,
+    HookSentry.Domain.Security.ICredentialEncryptionService encryption,
+    ISafeHttpClientFactory httpClientFactory,
     IEventPublisher publisher,
     IServiceScopeFactory scopeFactory,
     ILogger<WebhookDeliveryConsumer> logger) : BackgroundService
@@ -159,8 +161,8 @@ public sealed class WebhookDeliveryConsumer(
         await semaphore.WaitAsync(ct);
         try
         {
-            using var httpClient = new HttpClient();
-            await ApplyAuthAsync(httpClient, message);
+            using var httpClient = httpClientFactory.Create();
+            await ApplyAuthAsync(httpClient, message, ct);
             httpClient.DefaultRequestHeaders.Add(
                 "X-HookSentry-Signature", ComputeSignature(message.WebhookSecret, message.Payload));
             var content = new StringContent(message.Payload, Encoding.UTF8, "application/json");
@@ -273,7 +275,7 @@ public sealed class WebhookDeliveryConsumer(
         _ => TimeSpan.FromHours(6)
     };
 
-    private async Task ApplyAuthAsync(HttpClient client, EventMessage message)
+    private async Task ApplyAuthAsync(HttpClient client, EventMessage message, CancellationToken ct)
     {
         if (message.AuthType is null || message.CredentialsEncrypted is null)
             return;
@@ -297,7 +299,7 @@ public sealed class WebhookDeliveryConsumer(
                 break;
 
             case DestinationAuthType.JwtBearer:
-                var accessToken = await FetchJwtTokenAsync(root);
+                var accessToken = await FetchJwtTokenAsync(root, ct);
                 client.DefaultRequestHeaders.Authorization =
                     new AuthenticationHeaderValue("Bearer", accessToken);
                 break;
@@ -312,14 +314,14 @@ public sealed class WebhookDeliveryConsumer(
         }
     }
 
-    private static async Task<string> FetchJwtTokenAsync(JsonElement credentials)
+    private async Task<string> FetchJwtTokenAsync(JsonElement credentials, CancellationToken ct)
     {
         var clientId = credentials.GetProperty("clientId").GetString()!;
         var clientSecret = credentials.GetProperty("clientSecret").GetString()!;
         var tokenUrl = credentials.GetProperty("tokenEndpoint").GetString()!;
         var scope = credentials.TryGetProperty("scope", out var s) ? s.GetString() : null;
 
-        using var client = new HttpClient();
+        using var client = httpClientFactory.Create();
         var form = new Dictionary<string, string>
         {
             ["grant_type"] = "client_credentials",
@@ -328,10 +330,10 @@ public sealed class WebhookDeliveryConsumer(
         };
         if (scope is not null) form["scope"] = scope;
 
-        var response = await client.PostAsync(tokenUrl, new FormUrlEncodedContent(form));
+        var response = await client.PostAsync(tokenUrl, new FormUrlEncodedContent(form), ct);
         response.EnsureSuccessStatusCode();
 
-        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync());
+        using var json = JsonDocument.Parse(await response.Content.ReadAsStringAsync(ct));
         return json.RootElement.GetProperty("access_token").GetString()!;
     }
 

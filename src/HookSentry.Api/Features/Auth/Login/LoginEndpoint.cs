@@ -83,11 +83,13 @@ public class LoginEndpoint : IEndpoint
 
         if (user is null || !credentialsValid || user.Status != UserStatus.Active)
         {
+            // Always throttle by IP — otherwise an attacker rotating through unknown
+            // emails from one IP is never rate-limited (credential stuffing). The
+            // per-email counter stays guarded to a known user so random emails can't
+            // flood Redis with throwaway keys.
+            await rateLimiter.RecordAsync(LoginAction, ip, ct);
             if (user is not null)
-            {
-                await rateLimiter.RecordAsync(LoginAction, ip, ct);
                 await rateLimiter.RecordAsync(LoginAction, normalizedEmail, ct);
-            }
             return Results.Unauthorized();
         }
 
