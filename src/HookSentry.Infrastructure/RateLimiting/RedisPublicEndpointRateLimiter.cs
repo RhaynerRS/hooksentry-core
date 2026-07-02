@@ -39,7 +39,7 @@ public sealed class RedisPublicEndpointRateLimiter(
             var value = await redis.GetDatabase().StringGetAsync(Key(endpoint, key));
             return value.HasValue && (long)value >= GetLimit(endpoint);
         }
-        catch { return false; } // fail open — never block registration on Redis error
+        catch { return false; }
     }
 
     public async Task RecordAsync(string endpoint, string key, CancellationToken ct = default)

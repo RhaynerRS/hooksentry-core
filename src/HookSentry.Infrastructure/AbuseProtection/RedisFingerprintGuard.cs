@@ -20,7 +20,6 @@ public sealed class RedisFingerprintGuard(
         }
         catch
         {
-            // fail open — never block registration on Redis error
             return new FingerprintCheckResult(false, 0, options.Value.MaxAccountsPerFingerprint);
         }
     }

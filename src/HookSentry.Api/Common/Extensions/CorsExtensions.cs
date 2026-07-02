@@ -17,7 +17,6 @@ public static class CorsExtensions
                       .AllowAnyHeader()
                       .AllowAnyMethod());
 
-            // Used only on the ingest endpoint — accepts requests from any third-party sender.
             options.AddPolicy(OpenPolicyName, policy =>
                 policy.AllowAnyOrigin()
                       .AllowAnyHeader()

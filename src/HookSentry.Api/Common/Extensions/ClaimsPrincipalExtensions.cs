@@ -12,7 +12,6 @@ public static class ClaimsPrincipalExtensions
         return null;
     }
 
-    // Accepts Owner (10) and Admin (1) — both are management-level roles in the cloud.
     public static IResult? RequireAdminRole(this ClaimsPrincipal principal, out Guid tenantId)
     {
         if (!Guid.TryParse(principal.FindFirst("tenant_id")?.Value, out tenantId))

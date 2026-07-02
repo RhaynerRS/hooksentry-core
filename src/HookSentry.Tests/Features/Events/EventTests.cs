@@ -490,7 +490,6 @@ public class EventTests
         }
     }
 
-    // Auxiliary builder to create an Event with a specific status via reflection
     private class EventBuilder
     {
         private EventStatus _status = EventStatus.Pending;
