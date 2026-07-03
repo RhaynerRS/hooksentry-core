@@ -28,8 +28,6 @@ public class ApiKey
 
         RawKey = raw;
     }
-
-    // Populated only during creation — not persisted
     public string? RawKey { get; private set; }
 
     public virtual void Revoke()
