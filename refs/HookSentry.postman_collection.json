@@ -167,7 +167,7 @@
                 "exec": [
                   "if (pm.response.code === 201) {",
                   "    const body = pm.response.json();",
-                  "    pm.collectionVariables.set('tenantId', body.id);",
+                  "    pm.collectionVariables.set('tenantId', body.tenantId);",
                   "}"
                 ],
                 "type": "text/javascript"
@@ -180,7 +180,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"Minha Empresa\",\n  \"adminEmail\": \"admin@minhaempresa.com\",\n  \"adminPassword\": \"SenhaSegura123!\",\n  \"maxTrys\": 10,\n  \"circuitBreakerTimer\": 300\n}",
+              "raw": "{\n  \"name\": \"Minha Empresa\",\n  \"ownerEmail\": \"owner@minhaempresa.com\",\n  \"ownerPassword\": \"SenhaSegura123!\",\n  \"maxTrys\": 10,\n  \"circuitBreakerTimer\": 300,\n  \"deviceFingerprint\": \"\",\n  \"cfTurnstileToken\": \"\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
@@ -188,7 +188,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "tenants"]
             },
-            "description": "Cria um novo tenant e o primeiro usuário administrador. Gera automaticamente o webhookSecret. O ingestToken é retornado apenas nesta resposta."
+            "description": "Cria um novo tenant e o primeiro usuário owner. Gera automaticamente o webhookSecret. deviceFingerprint e cfTurnstileToken são opcionais, usados apenas no cloud (ignorados no self-hosted) para proteção anti-abuso. Sujeito a rate limit de 5 requisições/hora por IP e, no cloud, bloqueio de e-mails descartáveis (422) e checagem de fingerprint/Turnstile (429)."
           },
           "response": []
         },
@@ -217,7 +217,7 @@
             "header": [{ "key": "Content-Type", "value": "application/json" }],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"validityDays\": 7\n}",
+              "raw": "{\n  \"validityDays\": 7,\n  \"role\": \"Developer\"\n}",
               "options": { "raw": { "language": "json" } }
             },
             "url": {
@@ -225,7 +225,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "invites"]
             },
-            "description": "Gera um link pré-assinado para cadastro no tenant. Requer role Admin. validityDays: 1–30 (padrão: 7)."
+            "description": "Gera um link pré-assinado para cadastro no tenant. Requer role Admin ou Owner. validityDays: 1–30 (padrão: 7). role (opcional, padrão Developer): Developer, Viewer ou Admin (Admin só pode ser atribuído por um Owner). Owner não pode ser atribuído via convite."
           },
           "response": []
         },
@@ -245,7 +245,7 @@
                 { "key": "Status", "value": "", "description": "0=Pending, 1=Used", "disabled": true }
               ]
             },
-            "description": "Lista convites do tenant autenticado com paginação. Requer role Admin."
+            "description": "Lista convites do tenant autenticado com paginação. Requer role Admin ou Owner."
           },
           "response": []
         },
@@ -268,7 +268,7 @@
                 { "key": "token", "value": "<token-do-convite>", "description": "Token gerado pelo admin ao criar o convite" }
               ]
             },
-            "description": "Registra um novo usuário Developer no tenant associado ao convite. Não requer autenticação."
+            "description": "Registra um novo usuário no tenant associado ao convite, com a role definida na criação do convite (targetRole). Não requer autenticação."
           },
           "response": []
         }
@@ -292,7 +292,7 @@
               "host": ["{{baseUrl}}"],
               "path": ["api", "v1", "users"]
             },
-            "description": "Cria um novo usuário no tenant autenticado. role: 0=Developer (padrão), 1=Admin."
+            "description": "Cria um novo usuário no tenant autenticado. role: 0=Developer (padrão), 1=Admin, 10=Owner, 20=Viewer."
           },
           "response": []
         },
@@ -351,7 +351,7 @@
                 { "key": "id", "value": "<uuid-do-usuario>", "description": "UUID do usuário" }
               ]
             },
-            "description": "Atualiza parcialmente um usuário. Apenas campos enviados são alterados. role: 0=Developer, 1=Admin. status: 0=Active, 1=Inactive."
+            "description": "Atualiza parcialmente um usuário. Apenas campos enviados são alterados. role: 0=Developer, 1=Admin, 10=Owner, 20=Viewer. status: 0=Active, 1=Inactive. Alterar role requer que o autor seja Admin ou Owner; promover para Owner requer que o autor já seja Owner."
           },
           "response": []
         },
@@ -720,6 +720,27 @@
               ]
             },
             "description": "Reenvia manualmente um evento com status CriticalFailure. Zera currentRetryCount, define nextAttemptAt como now() e altera status para Pending."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Queues",
+      "item": [
+        {
+          "name": "Purge Queue",
+          "request": {
+            "method": "DELETE",
+            "url": {
+              "raw": "{{baseUrl}}/api/v1/queues/:destinationId",
+              "host": ["{{baseUrl}}"],
+              "path": ["api", "v1", "queues", ":destinationId"],
+              "variable": [
+                { "key": "destinationId", "value": "<uuid-da-destination>", "description": "UUID da URL de destino" }
+              ]
+            },
+            "description": "Cancela todos os eventos pendentes (Pending e WaitingRetry) de uma destination, marcando-os como Cancelled (RF-014). Operação de soft-cancel — como a arquitetura usa fila única, não é possível purgar seletivamente por destination no RabbitMQ; o Worker descarta silenciosamente mensagens de eventos cancelados. Irreversível — o frontend deve exigir confirmação explícita antes de chamar. Eventos com status Processing, Succeeded, CriticalFailure ou AuthenticationFailed não são afetados. Requer role Admin ou Owner."
           },
           "response": []
         }

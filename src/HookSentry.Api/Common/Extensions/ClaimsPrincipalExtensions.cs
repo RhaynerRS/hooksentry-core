@@ -37,8 +37,9 @@ public static class ClaimsPrincipalExtensions
 
     private static string? TryFindRole(this ClaimsPrincipal principal)
     {
-        if(principal.FindFirst("role")?.Value!= null)
-            return principal.FindFirst("role")?.Value;
+        string? role = principal.FindFirst("role")?.Value;
+        if (role != null)
+            return role;
 
         return principal.FindFirst("http://schemas.microsoft.com/ws/2008/06/identity/claims/role")?.Value;
     }
