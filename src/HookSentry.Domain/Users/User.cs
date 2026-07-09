@@ -5,7 +5,7 @@ public class User
     public virtual Guid Id { get; protected set; }
     public virtual Guid TenantId { get; protected set; }
     public virtual string Email { get; protected set; } = default!;
-    public virtual string PasswordHash { get; protected set; } = default!;
+    public virtual string? PasswordHash { get; protected set; }
     public virtual UserStatus Status { get; protected set; }
     public virtual UserRole Role { get; protected set; }
     public virtual DateTimeOffset CreatedAt { get; protected set; }
@@ -24,6 +24,23 @@ public class User
         Status = UserStatus.Active;
         CreatedAt = UpdatedAt = DateTimeOffset.UtcNow;
     }
+
+    private User(Guid tenantId, string email, UserRole role)
+    {
+        SetTenantId(tenantId);
+        SetEmail(email);
+        SetRole(role);
+
+        Id = Guid.NewGuid();
+        Status = UserStatus.Active;
+        CreatedAt = UpdatedAt = DateTimeOffset.UtcNow;
+    }
+
+
+    public static User CreateExternal(Guid tenantId, string email, UserRole role = UserRole.Developer)
+        => new(tenantId, email, role);
+
+    public virtual bool IsExternalOnly => PasswordHash is null;
 
     private void SetTenantId(Guid tenantId)
     {

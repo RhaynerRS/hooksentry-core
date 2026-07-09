@@ -480,4 +480,57 @@ public class UserTests
             Assert.Equal(originalCreatedAt, user.CreatedAt);
         }
     }
+
+    public class CreateExternal
+    {
+        [Fact]
+        public void Should_Create_Active_User_Without_Password()
+        {
+            var user = User.CreateExternal(ValidTenantId, ValidEmail, UserRole.Admin);
+
+            Assert.NotEqual(Guid.Empty, user.Id);
+            Assert.Equal(ValidTenantId, user.TenantId);
+            Assert.Equal(ValidEmail, user.Email);
+            Assert.Equal(UserRole.Admin, user.Role);
+            Assert.Equal(UserStatus.Active, user.Status);
+            Assert.Null(user.PasswordHash);
+            Assert.True(user.IsExternalOnly);
+        }
+
+        [Fact]
+        public void Should_Default_To_Developer_Role()
+        {
+            var user = User.CreateExternal(ValidTenantId, ValidEmail);
+
+            Assert.Equal(UserRole.Developer, user.Role);
+        }
+
+        [Fact]
+        public void Should_Normalize_Email_To_Lowercase()
+        {
+            var user = User.CreateExternal(ValidTenantId, "John@EXAMPLE.COM");
+
+            Assert.Equal("john@example.com", user.Email);
+        }
+
+        [Fact]
+        public void Should_Throw_When_TenantId_Is_Empty()
+        {
+            Assert.Throws<ArgumentException>(() => User.CreateExternal(Guid.Empty, ValidEmail));
+        }
+
+        [Fact]
+        public void Should_Throw_When_Email_Is_Invalid()
+        {
+            Assert.Throws<ArgumentException>(() => User.CreateExternal(ValidTenantId, "no-at-sign"));
+        }
+
+        [Fact]
+        public void Password_User_Should_Not_Be_External_Only()
+        {
+            var user = new User(ValidTenantId, ValidEmail, ValidHash);
+
+            Assert.False(user.IsExternalOnly);
+        }
+    }
 }
